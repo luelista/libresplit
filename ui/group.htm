@@ -1,57 +1,72 @@
+<div class="headertron pattern" style="background-color: #{{@group.color}};">
+  <div class="container">
+    <h2>Group <b>{{@group.name}}</b></h2>
+    <check if="{{ !@readonly }}">
+        <check if="{{ @membership.notifications }}">
+        <true>
+        <p><label for="chk_mailnotify" style="font-weight:normal;margin-bottom:0;">
+        <input type=checkbox checked onclick='switchNotifications(false)' id="chk_mailnotify"> 
+        You receive mail notifications for this group. </label></p>
+        </true>
+        <false>
+        <p><label for="chk_mailnotify" style="font-weight:normal;margin-bottom:0;">
+        <input type=checkbox onclick='switchNotifications(true)' id="chk_mailnotify"> 
+        You do not receive mail notifications for this group.</label></p>
+        </false>
+        </check>
+    </check>
+    
+    <p>Created at {{@group.created_at}}</p>
+    <p id="settleup"></p>
+  </div>
+</div>
+
 <div class=container>
-
-<h2>Group <b>{{@group.name}}</b></h2>
-
-<h3>To Pay</h3>
 
 
 <h3>Expenses</h3>
 <form id="expense_form">
 <table class="table">
-<thead><tr><th>Amount Paid</th><th>Paid By</th><th>Expense Description</th>
-<th>Split Amongst</th><th>When</th><th>Action</th></tr></thead>
+<thead><tr><th>Expense Description</th><th>Amount Paid</th><th>Paid By</th>
+<th>Split Amongst</th><th>Action</th></tr></thead>
+<check if="{{ !@readonly }}">
 <tr>
-<td><input type="number" name="amount" step="0.01" required style="width:100px"></td>
-<td><select name="who_paid" required class="memberselect">
+<td><input type="text" id="add_description" placeholder="Enter description of new expense"></td>
+<td><nobr>€&nbsp;<input type="number" id="add_amount" step="0.01" required style="width:100px" onchange="calcSplitAmounts()"></nobr></td>
+<td><select id="add_who_paid" required class="memberselect">
 <option value="">Please select who paid</option>
-<repeat group="{{ @members }}" value="{{@d}}">
-<option value="{{@d.id}}">{{@d.display_name}}</option>
-</repeat>
 </select></td>
-<td><input type="text" name="description"></td>
-<td><select name="split[]" multiple size=4 class="memberselect">
-<repeat group="{{ @members }}" value="{{@d}}">
-<option value="{{@d.id}}" selected>{{@d.display_name}}</option>
-</repeat>
-</select></td>
-<td></td>
+<td><select id="add_split" multiple size=4 class="memberselect" onchange="calcSplitAmounts()"></select></td>
 <td><input class="btn btn-success" type="button" value="Add" id="exp_add_btn"></td>
 </tr>
-
+</check>
 <repeat group="{{ @expenses }}" value="{{@d}}">
 <tr data-expense-id="{{@d.id}}">
-    <td>{{ @d.amount }}</td>
-    <td>{{ @d.who_paid }}</td>
-    <td>{{ @d.description }}</td>
+    <td>{{ @d.description }}<br><time>{{ @d.date }}</time></td>
+    <td>€&nbsp;{{ sprintf("%0.02f",@d.amount/100) }}</td>
+    <td>{{ @d.who_paid_name }}</td>
     <td>{{ @d.split_members }}</td>
-    <td>{{ @d.date }}</td>
-    <td><a href="/group/{{@group.id}}/expense/{{@d.id}}">edit</a>
-    | <a href="/group/{{@group.id}}/expense/{{@d.id}}/delete" class="expense-delete">delete</a></td>
+    <td><check if="{{ !@readonly }}">
+    <a href="javascript:" class="expense-copy">copy</a>
+    | <a href="/group/{{@group.id}}/expenses/{{@d.id}}">edit</a>
+    | <a href="/group/{{@group.id}}/expenses/{{@d.id}}/delete" class="expense-delete">delete</a>
+    </check></td>
 </tr>
 </repeat>
 
 </table>
 </form>
 
+<check if="{{ !@readonly }}">
 <h3>Members</h3>
 
 <table class=table>
-<thead><tr><th>Name</th><th>To Pay</th><th>Email</th><th>Joined?</th><th>Action</th></tr></thead>
+<thead><tr><th>Name</th><th>Email</th><th>Joined?</th><th>Action</th></tr></thead>
 <tbody id="member_list">
 
 </tbody>
 <tfoot>
-<tr><td colspan=4><form class="form-inline">
+<tr><td colspan=5><form class="form-inline">
 <input type="text" class="form-control" id="invite_name" placeholder="Name">
 <input type="button" class="btn btn-success" value="Invite" id="invite_btn">
 </form>
@@ -61,17 +76,41 @@
 </table>
 
 
+<h3>Share</h3>
+
+<p>The following link allows read-only access to this page. </p>
+<input type="text" readonly onmouseenter="this.select()" value="{{base_url()}}/group/{{@group.id}}?t={{@group.readonly_token}}" class=form-control>
+</check>
 
 </div>
+<style>
+time {font-size:80%;color: #666;}
+</style>
 
 
 <script>
 var group = <json from="{{ @group->cast() }}" />;
-var to_pay;
+var group_members = {};
+
+function formatCurrency(amount) {
+    var str = ""+amount;
+    while (str.length<3) str="0"+str;
+    return str.substr(0,str.length-2)+","+str.substr(str.length-2);
+}
 
 //==> Add expense
 $("#exp_add_btn").click(function() {
-    var data = $("#expense_form").serialize();
+    var data = {
+        description: $("#add_description").val(),
+        who_paid: $("#add_who_paid").val(),
+        amount: Math.round($("#add_amount").val().replace(/,/,'.')*100)
+    };
+    
+    $("#add_split option").filter(":selected").each(function() {
+        var m = $(this).data("member");
+        data['split['+ m.member_id+']'] = m.owes;
+    });
+    console.log(data);
     $.post("/group/"+group.id+"/expenses", data, function(r) {
         if (r.msg) alert(r.msg);
         if (r.success) location.reload();
@@ -81,30 +120,82 @@ $("#exp_add_btn").click(function() {
 $("body").on("click", ".expense-delete", function() {
     var id = $(this).closest("[data-expense-id]").attr("data-expense-id");
     if(confirm("Are you sure?")===true) {
-        $.post("/group/"+group.id+"/expenses/"+id+"/delete", {}, function(r) {
+        $.ajax({ method: 'DELETE', url: "/group/"+group.id+"/expenses/"+id, success: function(r) {
             location.reload();
-        }, "json");
+        }, dataType: "json"});
     }
     return false;
 });
 
+$("body").on("click", ".expense-copy", function() {
+    var id = $(this).closest("[data-expense-id]").attr("data-expense-id");
+    $.get("/group/"+group.id+"/expenses/"+id,function(r) {
+        $("#add_description").val(r.expense.description);
+        $("#add_who_paid").val(r.expense.who_paid);
+        $("#add_amount").val(r.expense.amount/100);
+        var splits = {};
+        for(var i in r.splits) {
+            splits[r.splits[i].member_id] = r.splits[i];
+        }
+        
+        var split =  $("#add_split")[0];
+        for(var i=0;i<split.options.length;i++) {
+            var m = $(split.options[i]).data("member");
+            split.options[i].selected = !!splits[m.member_id];
+            m.owes = splits[m.member_id] ? splits[m.member_id].amount : null;
+            updateSplitAmountText(split.options[i], m);
+        }
+    }, "json");
+    return false;
+});
+
+function calcSplitAmounts() {
+    var amount = Math.round(parseFloat($("#add_amount").val().replace(/,/,'.'))*100);
+    
+    var split =  $("#add_split")[0];
+    var selcount = $("#add_split option").filter(":selected").length;
+    var amountPerUser = Math.floor(amount / selcount);
+    var remain = amount - amountPerUser*selcount;
+    split_amount = [];
+    
+    for(var i=0;i<split.options.length;i++) {
+        var m = $(split.options[i]).data("member");
+        if (amount && split.options[i].selected) {
+            m.owes = amountPerUser + remain;
+            remain=0;
+        } else {
+            m.owes = null;
+        }
+        updateSplitAmountText(split.options[i], m);
+    }
+    
+}
+function updateSplitAmountText(option, m) {
+    var t = m.display_name;
+    if (m.owes) {
+        t += " owes €" + (m.owes/100);
+    }
+    option.innerText = t;
+}
 
 //==> Load and display member list
 function load_members() {
-    $.get("/group/"+group.id+"/members",function(r) {
+    return $.get("/group/"+group.id+"/members?t="+group.readonly_token,function(r) {
         $(".memberselect").each(function() {
             add_members_to_select(this, r.members);
         });
         
         add_members_to_table($("#member_list"), r.members);
         
+        group_members = {};
+        r.members.forEach(function(m) { group_members[m.member_id] = m; });
     },"json");
 }
 function add_members_to_select(select, members) {
     $("option.member",select).remove();
     for(var i in members) {
         $("<option class=member>").attr("value",members[i].member_id)
-            .text(members[i].display_name).appendTo(select);
+            .text(members[i].display_name).data("member", members[i]).appendTo(select);
     }
 }
 function add_members_to_table($table_cont, members) {
@@ -113,7 +204,6 @@ function add_members_to_table($table_cont, members) {
         var $tr = $("<tr>").attr("data-member-id",members[i].member_id)
             .data("member", members[i]);
         $("<td>").text(members[i].display_name).appendTo($tr);
-        $("<td>").text(-Math.round(to_pay[members[i].member_id]*100)/100).appendTo($tr);
         $("<td>").text(members[i].email).appendTo($tr);
         if (members[i].user_id) {
             $("<td>").text("yes").appendTo($tr);
@@ -124,15 +214,45 @@ function add_members_to_table($table_cont, members) {
         } else {
             $("<td>").text("no").appendTo($tr);
             $("<td>").html("<a href='javascript:' class='member-show-invite'>show invite link</a> "+
-                "| rename | change token | delete").appendTo($tr);
+                "| <a href='javascript:' class='member-rename'>rename</a> | change token | delete").appendTo($tr);
         }
         
         $tr.appendTo($table_cont);
     }
 }
-$.get("/group/"+group.id+"/to_pay",function(r) {
-    to_pay = r.to_pay;
-    load_members();
+
+load_members().then(function() {
+    $.get("/group/"+group.id+"/to_pay?t="+group.readonly_token,function(r) {
+        to_pay = {};
+        for(var i in r.to_pay) {
+            var d = r.to_pay[i];
+            if (d.debtor<d.creditor) {
+                var x=d.debtor; d.debtor=d.creditor; d.creditor=x; d.debt=-d.debt;
+            } else d.debt = +d.debt;
+            var key = d.debtor+":"+d.creditor;
+            if (!to_pay[key]) to_pay[key] = {debtor:group_members[+d.debtor], creditor:group_members[+d.creditor], debt:0};
+            to_pay[key].debt += d.debt;
+        }
+        console.log(to_pay);
+        var out="";
+        
+        for(var k in to_pay) {
+            var d = to_pay[k];
+            if (d.debt==0) continue;
+            if (d.debt<0) {
+                var x=d.debtor; d.debtor=d.creditor; d.creditor=x; d.debt=-d.debt;
+            }
+            if (libreSplit.userid && d.debtor.user_id == libreSplit.userid) {
+                out+=" <span class='label label-danger'>You owe "+formatCurrency(d.debt)+" to "+d.creditor.display_name+"</span>&nbsp; ";
+            } else if (libreSplit.userid && d.creditor.user_id == libreSplit.userid) {
+                out+=" <span class='label label-success'>"+d.debtor.display_name+" owes you "+formatCurrency(d.debt)+"</span>&nbsp; ";
+            } else {
+                out+=" <span class='label label-default'>"+d.debtor.display_name+" owes "+formatCurrency(d.debt)+" to "+d.creditor.display_name +"</span>&nbsp; ";
+            }
+        }
+        $("#settleup").html(out);
+        
+    });
 });
 
 //==> Handle invitations
@@ -154,6 +274,18 @@ $("body").on("click", "a.member-show-invite", function() {
     var member = $(this).closest("[data-member-id]").data("member");
     show_invite_modal(member.link);
 });
+$("body").on("click", "a.member-rename", function() {
+    var member = $(this).closest("[data-member-id]").data("member");
+    var new_name;
+    if (( new_name=prompt("Rename member", member.display_name) )) {
+        $.post("/group/"+group.id+"/members/"+member.member_id, { display_name: new_name }, function(r) {
+            if (r.msg) alert(r.msg);
+            if (r.success) {
+                load_members();
+            }
+        }, "json");
+    }
+});
 $("body").on("click", "a.member-leave", function() {
     var member = $(this).closest("[data-member-id]").data("member");
     if (confirm("Are you sure?")===true) {
@@ -165,6 +297,14 @@ $("body").on("click", "a.member-leave", function() {
         }, "json");
     }
 });
+function switchNotifications(new_state) {
+    $.post("/group/"+group.id+"", { 'notifications': new_state }, function(r) {
+        if (r.msg) alert(r.msg);
+        if (r.success) {
+            location=location;
+        }
+    }, "json");
+}
 
 function show_invite_modal(link) {
     $("#modal_invited_success").modal("show");
@@ -193,3 +333,5 @@ function show_invite_modal(link) {
     </div><!-- /.modal-content -->
   </div><!-- /.modal-dialog -->
 </div><!-- /.modal -->
+
+

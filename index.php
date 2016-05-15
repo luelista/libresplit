@@ -3,12 +3,14 @@
 // Kickstart the framework
 $f3=require('lib/base.php');
 session_start();
+if(!$_SESSION["csrf"]) $_SESSION["csrf"]=guid();
 
 if ((float)PCRE_VERSION<7.9)
         trigger_error('PCRE version is out of date');
 
 // Load configuration
-$f3->config('config.ini');
+$f3->config('app.ini');
+$f3->config('.htconfig.ini');
 $f3->set('DB', new \DB\SQL(  $f3->get('db.dsn'),
                     $f3->get('db.user'),
                     $f3->get('db.password')
@@ -42,14 +44,42 @@ function render_json($json) {
     header("Content-Type: application/json", true);
     echo json_encode($json);
 }
+function papertrail($g, $action, $object_type, $str_repr) {
+    $pt = dbm('papertrail');
+    $pt->actor_user_id = $_SESSION["userid"];
+    $pt->group_id = $g == NULL ? NULL : $g['id'];
+    $pt->action = $action;
+    $pt->object_type = $object_type;
+    $pt->repr = $str_repr;
+    $pt->save();
+    $noti = F3::get('DB')->exec('SELECT u.id,username,email 
+        FROM user u
+            INNER JOIN group_member gm ON u.id=gm.user_id 
+        WHERE gm.notifications > 0 AND gm.group_id = ?',
+        [ $g['id'] ]);
+    foreach($noti as $user) {
+        if ($user['id'] != $_SESSION['userid']) {
+            mail("$user[username] <$user[email]>", "LibreSplit Notification Regarding Group $g[name]", 
+                "Group: ".$g["name"]."\n"."$_SESSION[username] did $action a $object_type ($str_repr)");
+        }
+    }
+}
 class LibreSplit {
     function __construct() {
     }
-    function render_layout($content) {
+    private function render_layout($content) {
         F3::set('content', $content);
         echo \Template::instance()->render('layout.htm');
     }
-    
+    private function render_errmes($message) {
+        F3::set('ERROR.status', 'Oops, something went wrong!');
+        F3::set('ERROR.text', $message);
+        $this->render_framework_errmes();
+    }
+    function render_framework_errmes() {
+        F3::set('content', 'errmes.htm');
+        echo \Template::instance()->render('layout.htm');
+    }
     function index() {
         if ($_SESSION['userid']) {
             F3::reroute('/groups');
@@ -61,7 +91,7 @@ class LibreSplit {
         if ($_GET["identity"]) {
             $openid=new \Web\OpenID;
             $openid->identity=$_GET["identity"];
-            $openid->localidentity="http://specs.openid.net/auth/2.0/identifier_select";
+            if($_GET['id']=='select')$openid->localidentity="http://specs.openid.net/auth/2.0/identifier_select";
             $openid->return_to=base_url().'/verified';
             if ($openid->auth() === FALSE) {
                 F3::set('login_error', "This is not a valid openid");
@@ -99,10 +129,11 @@ class LibreSplit {
         $_SESSION["oid"]=$openid->response();
         
         if (isset($_SESSION['loginreturn'])) {
-            F3::reroute($_SESSION['loginreturn']);
+            $path = $_SESSION['loginreturn'];
             unset($_SESSION['loginreturn']);
+            F3::reroute($path);
         } elseif (!$user->email) {
-            F3::reroute('/profile?msg=email&back='.urlencode($_SESSION['loginreturn']));
+            F3::reroute('/profile?msg=welcome');
         } else {
             $ug = dbm('group_member');
             if (1 === $ug->count(['user_id = ?', $user->id])) {
@@ -120,7 +151,7 @@ class LibreSplit {
         unset($_SESSION["email"]);
         F3::reroute('/');
     }
-    function require_login($require_email=TRUE) {
+    private function require_login($require_email=TRUE) {
         if (!$_SESSION["userid"]) {
             $_SESSION['loginreturn'] = F3::get('PATH');
             F3::reroute('/login');
@@ -132,14 +163,26 @@ class LibreSplit {
             exit;
         }
     }
-    function require_group($guid) {
+    private function require_group($guid, $is_readonly_method=FALSE) {
         $g = dbm('group');
         $g->load(['id=?', $guid]);
         if ($g->dry()) F3::error(404);
         
         $gm = dbm('group_member');
         $gm->load(['user_id=? AND group_id=?', $_SESSION['userid'], $g->id]);
-        if ($gm->dry()) F3::error(404);
+        if ($gm->dry()) {
+            if ($is_readonly_method && F3::exists('GET.t') && $g->readonly_token == F3::get('GET.t')) {
+                F3::set('readonly', true);
+            } else {
+                $this->require_login();
+                F3::error(404);
+            }
+        } else {
+            F3::set('readonly', false);
+        }
+        
+        F3::set('group', $g);
+        F3::set('membership', $gm);
         
         return $g;
     }
@@ -149,7 +192,7 @@ class LibreSplit {
         $user->load(['id=?', $_SESSION['userid']]);
         if ($user->dry()) F3::error(404);
         F3::set('profile', $user);
-        var_dump($_SESSION["oid"]);
+        
         
         $this->render_layout('profile.htm');
     }
@@ -166,14 +209,26 @@ class LibreSplit {
             }
         
         $user->save();
-        
-        F3::reroute('/profile');
+        papertrail(NULL, "update", "profile", "$user[username] $user[email]");
+        if (!$user->email)
+            F3::reroute('/profile?msg=email');
+        else {
+            F3::set('location', $_SESSION['loginreturn'] ?: '/groups');
+            unset($_SESSION['loginreturn']);
+            $this->render_layout('profilenext.htm');
+        }
     }
     function show_groups() {
         $this->require_login();
-        $groups = F3::get('DB')->exec('SELECT * 
-            FROM group_member INNER JOIN `group` g ON group_id=g.id 
-            WHERE user_id = ?', [ $_SESSION['userid'] ]);
+        $groups = F3::get('DB')->exec('SELECT g.* , GROUP_CONCAT(COALESCE(u.username,gm.invited_name) SEPARATOR ", ") members
+            FROM group_member me
+                INNER JOIN `group` g ON me.group_id=g.id
+                LEFT OUTER JOIN `group_member` gm ON gm.group_id=g.id
+                LEFT OUTER JOIN `user` u ON u.id=gm.user_id
+                
+            WHERE me.user_id = ?
+                GROUP BY g.id
+                ', [ $_SESSION['userid'] ]);
         
         F3::set('groups', $groups);
         $this->render_layout('groups.htm');
@@ -183,97 +238,195 @@ class LibreSplit {
         
         $g = dbm('group');
         $g->id = guid();
+        $g->readonly_token = guid();
         $g->name = $_POST['name'];
+        $g->color = sprintf('#%06X', mt_rand(0, 0xFFFFFF));
+        $g->comment = '';
         $g->save();
+        papertrail($g, "add", "group", "");
         
         $gm = dbm('group_member');
         $gm->group_id = $g->id;
         $gm->user_id = $_SESSION['userid'];
         $gm->created_at = sql_now();
         $gm->joined_at = sql_now();
+        $gm->notifications = 1;
         $gm->save();
+        papertrail($g, "add", "group_member", "group creator is now member");
         
         F3::reroute('/group/' . $g->id);
     }
     function show_group_expenses() {
-        $this->require_login();
+        if (!F3::exists('GET.t')) $this->require_login();
+        $g = $this->require_group(F3::get('PARAMS.id'), TRUE);
         
-        $g = $this->require_group(F3::get('PARAMS.id'));
         F3::set('group', $g);
         
-        $e = F3::get('DB')->exec('SELECT e.*, GROUP_CONCAT(IF(u.id IS NULL,gm.invited_name,concat(u.username, " <",u.email,">")) separator ", ") split_members
+        $e = F3::get('DB')->exec('SELECT e.*,
+        COALESCE(paid_u.username,paid_gm.invited_name) who_paid_name,
+         GROUP_CONCAT(concat(COALESCE(u.username,gm.invited_name), " (€",format(uu.amount/100,2),")") separator ", ") split_members
         FROM expense e LEFT OUTER JOIN expense_split_user uu ON e.id=uu.expense_id
         LEFT OUTER JOIN group_member gm ON uu.member_id=gm.id
         LEFT OUTER JOIN user u ON gm.user_id=u.id
+        
+        LEFT OUTER JOIN group_member paid_gm ON e.who_paid=paid_gm.id
+        LEFT OUTER JOIN user paid_u ON paid_gm.user_id=paid_u.id
+        
         WHERE e.group_id = ?
-        GROUP BY e.id', [$g->id]);
+        GROUP BY e.id
+        ORDER BY e.date DESC,e.created_at DESC', [$g->id]);
         F3::set('expenses', $e);
         
         $this->render_layout('group.htm');
     }
-    function show_topay() {
+    function update_group() {
         $this->require_login();
         
         $g = $this->require_group(F3::get('PARAMS.id'));
+        if (isset($_POST['notifications'])) {
+            $membership = F3::get('membership');
+            $membership->notifications = ($_POST['notifications'] == "true") ? 1 : 0;
+            $membership->save();
+        }
         
-        $paids = F3::get('DB')->exec('SELECT sum(e.amount) credit,e.who_paid member_id
-        FROM expense e
-        WHERE e.group_id = ?
-        GROUP BY e.who_paid', [$g->id]);
-        $splits = F3::get('DB')->exec('SELECT -(sum(e.amount)*esu.weight)/e.weight_sum credit, esu.member_id
-        FROM (
-            select ee.*, sum(eesu.weight) weight_sum from expense ee left outer join expense_split_user eesu on ee.id=eesu.expense_id
-             WHERE ee.group_id = ? group by ee.id
-        ) AS e 
-        inner join expense_split_user AS esu 
-                    on e.id=esu.expense_id
+        $pt="";
+        foreach ([ 'name', 'color', 'comment' ] as $field)
+            if (isset($_POST[$field])) {
+                $g[$field] = $_POST[$field];
+                $pt.="$field=".$_POST[$field]."\n";
+            }
+        $g->save();
+        papertrail($g, "update", "group", $pt);
         
-        GROUP BY esu.member_id', [$g->id]);
-        $m = [];
-        foreach($paids as $d) $m[ $d['member_id'] ] += $d['credit'];
-        foreach($splits as $d) $m[ $d['member_id'] ] += $d['credit'];
-        render_json(["success" => true, "to_pay" => $m]);
+        render_json(["success" => true]);
     }
-    function get_group_members_json() {
-        $this->require_login();
+    function show_topay() {
+        $g = $this->require_group(F3::get('PARAMS.id'), TRUE);
         
-        $g = $this->require_group(F3::get('PARAMS.id'));
+        $debts = F3::get('DB')->exec('SELECT sum(esu.amount) debt, esu.member_id debtor, ee.who_paid creditor
+         FROM expense ee 
+                left outer join expense_split_user esu on ee.id=esu.expense_id
+         WHERE ee.group_id = ?
+                AND esu.member_id <> ee.who_paid
+         GROUP BY esu.member_id,ee.who_paid', [$g->id]);
+        
+        render_json(["success" => true, "to_pay" => $debts]);
+    }
+    private function get_group_members($g) {
         $members = F3::get('DB')->exec('SELECT gm.id member_id, coalesce(u.username,gm.invited_name) display_name,u.id user_id,u.email,gm.invited_token
         FROM `group_member` gm LEFT OUTER JOIN `user` u ON gm.user_id=u.id
-        WHERE gm.group_id=?', [$g->id]);
+        WHERE gm.group_id=? ORDER BY gm.id', [$g->id]);
         foreach($members as &$d) if($d['invited_token'])$d['link'] = base_url().'/join/'.$d['invited_token'];
+        return $members;
+    }
+    function get_group_members_json() {
+        $g = $this->require_group(F3::get('PARAMS.id'), TRUE);
+        $members = $this->get_group_members($g);
         render_json(["success"=>true, "members" => $members]);
     }
     
-    function create_expense() {
-        $this->require_login();
-        $g = $this->require_group(F3::get('PARAMS.id'));
-        
+    private function store_expense_from_post_data($exp) {
         $db = F3::get('DB');
         $db->begin();
         
-        $exp = dbm('expense');
-        $exp->group_id = $g->id;
-        $exp->type = "Expense";
+        $factor = 1;
+        if ($_POST['amount_float']) $factor=100;
+        
         $exp->who_paid = intval($_POST['who_paid']);
-        $exp->amount = floatval($_POST['amount']);
+        if (isset($_POST['amount'])) $exp->amount = round($_POST['amount']*$factor,0);
         $exp->description = $_POST['description'];
-        $exp->date = sql_now();
-        if (!$exp->who_paid || $exp->amount == 0) { render_json(["success"=>false,'msg'=>'missing data']); return; }
-        if (!is_array($_POST['split'])) { render_json(["success"=>false,'msg'=>'select at least one who must pay']); return; }
+        if (isset($_POST['date'])) $exp->date = $_POST['date'];
+        if (isset($_POST['type'])) $exp->type = $_POST['type'];
+        if (!$exp->who_paid || $exp->amount == 0) throw new InvalidArgumentException('missing data');
+        if (!is_array($_POST['split']))
+            throw new InvalidArgumentException("select at least one who must pay");
+        $is_new = $exp->dry();
+        if (!$is_new) $db->exec("DELETE FROM expense_split_user WHERE expense_id = ?", [ $exp->id ]);
+        $exp->updated_at = sql_now();
         $exp->save();
         
-        
-        foreach($_POST['split'] as $member_id) {
+        $split = $_POST['split'];
+        $sum = 0;
+        foreach($split as $split_member_id => $split_amount) {
             $esu = dbm('expense_split_user');
             $esu->expense_id = $exp->id;
-            $esu->member_id = $member_id;
+            $esu->member_id = $split_member_id;
+            $esu->payer_member_id = intval($_POST['who_paid']);
+            $esu->amount = round($split_amount*$factor,0);
+            $sum += $esu->amount;
             $esu->save();
         }
+        if ($sum != $exp->amount) {
+            $db->rollback(); throw new InvalidArgumentException("sum of split amounts $sum must match expense amount {$exp->amount}");
+        }
         $db->commit();
+        papertrail($g, $is_new?"add":"update", "expense", "{$exp->type}  {$exp->description}  {$exp->amount}  {$exp->who_paid}  {$exp->date}");
         
-        render_json(["success"=>true, 'id'=>$exp->id]);
+    }
+    function create_expense() {
+        try{
+            $this->require_login();
+            $g = $this->require_group(F3::get('PARAMS.id'));
+            
+            $exp = dbm('expense');
+            $exp->group_id = $g->id;
+            $exp->type = "Expense";
+            $exp->date = sql_now();
+            $this->store_expense_from_post_data($exp);
+            
+            render_json(["success"=>true, 'id'=>$exp->id]);
+        }catch(Exception $ex) {
+            render_json(["success"=>false,'msg'=>$ex->getMessage()]);
+        }
+    }
+    function update_expense() {
+        try{
+            $this->require_login();
+            $g = $this->require_group(F3::get('PARAMS.group'));
+            
+            $exp = dbm('expense');
+            $exp->load(['group_id=? AND id=?', $g->id, F3::get('PARAMS.expense')]);
+            $this->store_expense_from_post_data($exp);
+            
+            switch (\Web::instance()->acceptable(['text/html','application/json'])) {
+            case 'application/json':  render_json(["success"=>true, 'id'=>$exp->id]); break;
+            case 'text/html':  F3::reroute('/group/'.$g->id.'#'.$exp->id); break;
+            }
+            
+        }catch(Exception $ex) {
+            switch (\Web::instance()->acceptable(['text/html','application/json'])) {
+            case 'application/json':  render_json(["success"=>false, 'msg'=>$ex->getMessage()]); break;
+            case 'text/html':  $this->render_errmes($ex->getMessage()); break;
+            }
+        }
+    }
+    function edit_expense() {
+        $this->require_login();
+        $g = $this->require_group(F3::get('PARAMS.group'));
+        $ex = dbm('expense');
+        $ex->load(['id=? and group_id=?', F3::get('PARAMS.expense'), $g->id]);
         
+        if ($ex->dry()) { render_json(["success"=>false,]); return; }
+        
+        $splits = F3::get('DB')->exec('SELECT member_id,
+            COALESCE(u.username,gm.invited_name) display_name, uu.amount
+        FROM expense_split_user uu 
+        LEFT OUTER JOIN group_member gm ON uu.member_id=gm.id
+        LEFT OUTER JOIN user u ON gm.user_id=u.id
+        WHERE uu.expense_id = ?
+        ', [$ex->id]);
+        
+        switch (\Web::instance()->acceptable(['text/html','application/json'])) {
+        case 'application/json':
+            render_json(["success"=>"true", "expense" => $ex->cast(), "splits"=> $splits]);
+            break;
+        case 'text/html':
+            F3::set('expense', $ex);
+            F3::set('splits', $splits);
+            F3::set('members', $this->get_group_members($g));
+            $this->render_layout('editexpense.htm');
+            break;
+        }
     }
     function create_group_member() {
         $this->require_login();
@@ -286,8 +439,25 @@ class LibreSplit {
         $gm->invited_token = guid();
         $gm->created_at = sql_now();
         $gm->save();
+        papertrail($g, "add", "group_member", "invited name={$gm->invited_name}");
         
         render_json(["success"=>true, 'link' => base_url().'/join/'.$gm->invited_token]);
+        
+    }
+    function update_group_member() {
+        $this->require_login();
+        $g = $this->require_group(F3::get('PARAMS.id'));
+        
+        $gm = dbm('group_member');
+        $gm->load(["group_id=? AND id=?", $g->id, F3::get('PARAMS.member')]);
+        if ($gm->dry()) { render_json(["success"=>false,"msg"=>"member not found"]); return; }
+        if ($gm->user_id != NULL) { render_json(["success"=>false,"msg"=>"can't update joined member"]); return; }
+        $gm->invited_name = $_POST["display_name"];
+        $gm->invited_token = guid();
+        $gm->save();
+        papertrail($g, "update", "group_member", "member renamed: {$gm->invited_name}");
+        
+        render_json(["success"=>true, ]);
         
     }
     function kick_group_member() {
@@ -309,6 +479,7 @@ class LibreSplit {
         $gm->invited_token = guid();
         $gm->joined_at = NULL;
         $gm->save();
+        papertrail($g, "update", "group_member", "member left: {$gm->invited_name}");
         
         render_json(["success"=>true, ]);
         
@@ -323,13 +494,15 @@ class LibreSplit {
         $exp->load(['group_id=? AND id=?', $g->id, F3::get('PARAMS.expense')]);
         if($exp->dry()){ render_json(["success"=>false ]); return; }
         $exp->erase();
+        papertrail($g, "delete", "expense", "{$exp->type}  {$exp->description}  {$exp->amount}  {$exp->who_paid}  {$exp->date}");
+        
         
         render_json(["success"=>true ]);
         
     }
     
     
-    function require_invite_token($token) {
+    private function require_invite_token($token) {
         $gm = dbm("group_member");
         $gm->load(["invited_token=?", $token]);
         if ($gm->dry()) F3::error(404);
@@ -355,6 +528,8 @@ class LibreSplit {
         $gm->user_id = $_SESSION['userid'];
         $gm->joined_at = sql_now();
         $gm->save();
+        papertrail($g, "update", "group_member", "member joined");
+        
         F3::reroute('/group/'.$gm->group_id);
     }
 }

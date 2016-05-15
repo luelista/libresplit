@@ -1,24 +1,48 @@
-<div class=container>
+<div class="headertron pattern2" style="background-color: #d1004d;">
+  <div class="container">
+<check if="{{ @GET.msg == 'welcome' }}">
+<true>
+    <h2>Welcome to your new account!</h2>
+    <p>Please choose a username and fill in your e-mail address. You may change this later at any time.</p>
+</true>
+<false>
+    <h2>Edit your profile data</h2>
+    <p>You may update your username and email address below.</p>
+</false>
+</check>
+  </div>
+</div>
 
+
+<div class=container>
+<br>
 <check if="{{ @GET.msg == 'email' }}">
-<div class="alert alert-info">
-Please choose a username and fill in your valid e-mail address in the fields below to use this app.
+<div class="alert alert-warning alert-with-icon">
+<span class="fa fa-info-circle"></span> 
+<h4>Incomplete profile</h4>
+<p>Please choose a username and fill in your e-mail address in the fields below to use this app.</p>
 </div>
 </check>
 
 <form action='/profile' method='post'>
+<input type='hidden' name='csrf_token' value='{{ @SESSION.csrf }}'>
+
 <div class="form-group"><label for="username">User Name:</label>
 <input class="form-control" type="text" name="username" value="{{@profile.username}}" id="username"></div>
 
 <div class="form-group"><label for="email">E-Mail:</label>
 <input class="form-control" type="email" name="email" value="{{@profile.email}}" id="email"></div>
 
-<div class="form-group"><label for="openid">OpenID:</label>
+<div class="form-group"><label for="openid">Your login OpenID:</label>
 <input class="form-control" type="text" disabled value="{{@profile.openid}}" id="openid"></div>
 
 <div class="form-group">
 <input class="btn" type="submit" value="OK"></div>
 
 </form>
+
+<!--
+{{print_r(@@SESSION.oid,1)}}
+-->
 
 </div>

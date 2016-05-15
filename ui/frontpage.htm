@@ -1,31 +1,44 @@
 
-    <!-- Main jumbotron for a primary marketing message or call to action -->
-    <div class="jumbotron">
-      <div class="container">
-        <h1>Hello, world!</h1>
-       
-       
-      </div>
-    </div>
-
+<!-- Main jumbotron for a primary marketing message or call to action -->
+<div class="jumbotron pattern2" style="background-color: #11ff11; margin-top: -20px;">
     <div class="container">
-    
-<check if="{{ @login_error }}">
-    <div class="alert alert-danger">
-        {{ @login_error}}
+            
+        <div class=pull-right style="width:120px">
+            <span class="fa fa-users" style="font-size:90px;position:absolute;color: #ddd;"></span>
+            <span class="fa fa-list-alt" style="font-size:65px;position:absolute;color:#000;margin-top:50px;margin-left:60px;"></span>
+            <span class="fa fa-balance-scale" style="font-size:80px;position:absolute;color:#000;margin-top:45px;margin-left:-50px"></span>
+        </div>
+        
+        <h1>Chip in!</h1>
+
+        <p>Track your group expenses online and settle up easily with LibreSplit</p>
     </div>
+</div>
+
+<div class="container">
+
+<check if="{{ @login_error }}">
+<div class="alert alert-danger">
+    {{ @login_error}}
+</div>
 </check>
-        Login with OpenID: 
-            <form action=/login method=get>
-            <input type=text name=identity><input type=submit value=login>
-            </form>
-    
-    <a href="/login?identity=https://me.yahoo.com">Login with Yahoo!</a>
-    <br>
-    <a href="/login?identity=https://steamcommunity.com/openid">Login with Steam</a>
-    <br>
-    <a href="/login?identity=https://id.teamwiki.de/idpXrds">Login with Teamwiki</a>
-    <br>
-    
-    
-      </div>
+    <p><span class="fa fa-openid"></span>  Login with OpenID: 
+        <form action=/login method=get class=form-inline>
+        <input type=text name=identity class=form-control> <input type=submit value=login class='btn btn-primary'>
+        </form></p>
+        
+<p><a class="btn btn-default" href="/login?identity=https://me.yahoo.com&id=select"><span class="fa fa-yahoo"></span> Login with Yahoo!</a>
+</p>
+
+<p><a class="btn btn-default" href="/login?identity=https://openid.stackexchange.com/&id=select"><span class="fa fa-stack-exchange"></span> Login with StackExchange OpenId</a>
+</p>
+
+<p><a class="btn btn-default" href="/login?identity=https://steamcommunity.com/openid&id=select"><span class="fa fa-steam"></span> Login with Steam account</a>
+</p>
+
+<p><a class="btn btn-default" href="/login?identity=https://id.teamwiki.de/idpXrds&id=select"><span class="fa fa-openid"></span> Login with Teamwiki</a>
+</p>
+
+
+
+</div>
