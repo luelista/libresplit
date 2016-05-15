@@ -1,0 +1,24 @@
+<div class=container>
+
+<check if="{{ @GET.msg == 'email' }}">
+<div class="alert alert-info">
+Please choose a username and fill in your valid e-mail address in the fields below to use this app.
+</div>
+</check>
+
+<form action='/profile' method='post'>
+<div class="form-group"><label for="username">User Name:</label>
+<input class="form-control" type="text" name="username" value="{{@profile.username}}" id="username"></div>
+
+<div class="form-group"><label for="email">E-Mail:</label>
+<input class="form-control" type="email" name="email" value="{{@profile.email}}" id="email"></div>
+
+<div class="form-group"><label for="openid">OpenID:</label>
+<input class="form-control" type="text" disabled value="{{@profile.openid}}" id="openid"></div>
+
+<div class="form-group">
+<input class="btn" type="submit" value="OK"></div>
+
+</form>
+
+</div>
