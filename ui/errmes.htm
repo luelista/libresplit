@@ -1,0 +1,21 @@
+<div class="headertron pattern2" style="background-color: #ff0000;">
+  <div class="container">
+  
+    <h2><span class="fa fa-exclamation-circle pull-right" style="font-size:200%"></span> {{@@ERROR.code}} {{@ERROR.status}}</h2>
+    <p>{{ @ERROR.text }}</p>
+
+  </div>
+</div>
+
+
+  <div class="container">
+  <br>
+  <check if="{{@ERROR.trace}}">
+  
+  Diagnostic Information:<br>
+  <div class="trace">
+  {{ @ERROR.trace|raw }}
+  </div>
+  <style> .trace code {display:block;white-space:pre-wrap; background:white;}</style>
+  </check>
+  </div>

@@ -1,11 +1,36 @@
+<div class="headertron pattern2" style="background-color: #00d6c4;">
+  <div class="container">
+    <h2>Your Groups</h2>
+    <p>asdf</p>
+  </div>
+</div>
+
 <div class=container>
-<form action='/groups' method='post'>
-<div class="form-group"><label for="groupname">Group Name:</label>
-<input class="form-control" type="text" name="name" id="groupname"></div>
-
-<div class="form-group">
-<input class="btn" type="submit" value="OK"></div>
-
+<br>
+<table class="table table-hover">
+<thead><tr><th>Group Name</th><th>Members</th></tr></thead>
+<repeat group="{{@groups}}" value="{{@d}}">
+<tr class="clickable-row"><td><a href="/group/{{@d.id}}">{{@d.name}}</a></td><td>{{@d.members}}</td></tr>
+</repeat>
+<tfoot>
+<tr><td colspan=2>
+<form action='/groups' method='post' class='form-inline'>
+<input class="form-control" type="text" name="name" id="groupname" placeholder="Enter group name">
+<input class="btn" type="submit" value="Start a group">
 </form>
+</td></tr>
+</tfoot>
+</table>
+
+
+
 
 </div>
+<style>
+.clickable-row {cursor:pointer}
+</style>
+<script>
+$(".clickable-row").click(function() {
+    location=$("a",this).first().attr("href");
+});
+</script>
