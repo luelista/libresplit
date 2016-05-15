@@ -1,0 +1,31 @@
+
+    <!-- Main jumbotron for a primary marketing message or call to action -->
+    <div class="jumbotron">
+      <div class="container">
+        <h1>Hello, world!</h1>
+       
+       
+      </div>
+    </div>
+
+    <div class="container">
+    
+<check if="{{ @login_error }}">
+    <div class="alert alert-danger">
+        {{ @login_error}}
+    </div>
+</check>
+        Login with OpenID: 
+            <form action=/login method=get>
+            <input type=text name=identity><input type=submit value=login>
+            </form>
+    
+    <a href="/login?identity=https://me.yahoo.com">Login with Yahoo!</a>
+    <br>
+    <a href="/login?identity=https://steamcommunity.com/openid">Login with Steam</a>
+    <br>
+    <a href="/login?identity=https://id.teamwiki.de/idpXrds">Login with Teamwiki</a>
+    <br>
+    
+    
+      </div>

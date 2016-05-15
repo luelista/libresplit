@@ -1,0 +1,195 @@
+<div class=container>
+
+<h2>Group <b>{{@group.name}}</b></h2>
+
+<h3>To Pay</h3>
+
+
+<h3>Expenses</h3>
+<form id="expense_form">
+<table class="table">
+<thead><tr><th>Amount Paid</th><th>Paid By</th><th>Expense Description</th>
+<th>Split Amongst</th><th>When</th><th>Action</th></tr></thead>
+<tr>
+<td><input type="number" name="amount" step="0.01" required style="width:100px"></td>
+<td><select name="who_paid" required class="memberselect">
+<option value="">Please select who paid</option>
+<repeat group="{{ @members }}" value="{{@d}}">
+<option value="{{@d.id}}">{{@d.display_name}}</option>
+</repeat>
+</select></td>
+<td><input type="text" name="description"></td>
+<td><select name="split[]" multiple size=4 class="memberselect">
+<repeat group="{{ @members }}" value="{{@d}}">
+<option value="{{@d.id}}" selected>{{@d.display_name}}</option>
+</repeat>
+</select></td>
+<td></td>
+<td><input class="btn btn-success" type="button" value="Add" id="exp_add_btn"></td>
+</tr>
+
+<repeat group="{{ @expenses }}" value="{{@d}}">
+<tr data-expense-id="{{@d.id}}">
+    <td>{{ @d.amount }}</td>
+    <td>{{ @d.who_paid }}</td>
+    <td>{{ @d.description }}</td>
+    <td>{{ @d.split_members }}</td>
+    <td>{{ @d.date }}</td>
+    <td><a href="/group/{{@group.id}}/expense/{{@d.id}}">edit</a>
+    | <a href="/group/{{@group.id}}/expense/{{@d.id}}/delete" class="expense-delete">delete</a></td>
+</tr>
+</repeat>
+
+</table>
+</form>
+
+<h3>Members</h3>
+
+<table class=table>
+<thead><tr><th>Name</th><th>To Pay</th><th>Email</th><th>Joined?</th><th>Action</th></tr></thead>
+<tbody id="member_list">
+
+</tbody>
+<tfoot>
+<tr><td colspan=4><form class="form-inline">
+<input type="text" class="form-control" id="invite_name" placeholder="Name">
+<input type="button" class="btn btn-success" value="Invite" id="invite_btn">
+</form>
+</td>
+</tr>
+</tfoot>
+</table>
+
+
+
+</div>
+
+
+<script>
+var group = <json from="{{ @group->cast() }}" />;
+var to_pay;
+
+//==> Add expense
+$("#exp_add_btn").click(function() {
+    var data = $("#expense_form").serialize();
+    $.post("/group/"+group.id+"/expenses", data, function(r) {
+        if (r.msg) alert(r.msg);
+        if (r.success) location.reload();
+    }, "json");
+});
+
+$("body").on("click", ".expense-delete", function() {
+    var id = $(this).closest("[data-expense-id]").attr("data-expense-id");
+    if(confirm("Are you sure?")===true) {
+        $.post("/group/"+group.id+"/expenses/"+id+"/delete", {}, function(r) {
+            location.reload();
+        }, "json");
+    }
+    return false;
+});
+
+
+//==> Load and display member list
+function load_members() {
+    $.get("/group/"+group.id+"/members",function(r) {
+        $(".memberselect").each(function() {
+            add_members_to_select(this, r.members);
+        });
+        
+        add_members_to_table($("#member_list"), r.members);
+        
+    },"json");
+}
+function add_members_to_select(select, members) {
+    $("option.member",select).remove();
+    for(var i in members) {
+        $("<option class=member>").attr("value",members[i].member_id)
+            .text(members[i].display_name).appendTo(select);
+    }
+}
+function add_members_to_table($table_cont, members) {
+    $table_cont.html("");
+    for(var i in members) {
+        var $tr = $("<tr>").attr("data-member-id",members[i].member_id)
+            .data("member", members[i]);
+        $("<td>").text(members[i].display_name).appendTo($tr);
+        $("<td>").text(-Math.round(to_pay[members[i].member_id]*100)/100).appendTo($tr);
+        $("<td>").text(members[i].email).appendTo($tr);
+        if (members[i].user_id) {
+            $("<td>").text("yes").appendTo($tr);
+            if (members[i].user_id == libreSplit.userid)
+                $("<td>").html("<a href='javascript:' class='member-leave'>leave</a>").appendTo($tr);
+            else
+                $("<td>").html("<a href='javascript:' class='member-leave'>kick</a>").appendTo($tr);
+        } else {
+            $("<td>").text("no").appendTo($tr);
+            $("<td>").html("<a href='javascript:' class='member-show-invite'>show invite link</a> "+
+                "| rename | change token | delete").appendTo($tr);
+        }
+        
+        $tr.appendTo($table_cont);
+    }
+}
+$.get("/group/"+group.id+"/to_pay",function(r) {
+    to_pay = r.to_pay;
+    load_members();
+});
+
+//==> Handle invitations
+$("#invite_btn").click(function() {
+    var name = $("#invite_name").val();
+    $.post("/group/"+group.id+"/members", {
+        display_name: name
+    },function(r) {
+        if (r.success) {
+            $("#invite_name").val("");
+            load_members();
+            show_invite_modal(r.link);
+            
+        }
+    },"json");
+});
+
+$("body").on("click", "a.member-show-invite", function() {
+    var member = $(this).closest("[data-member-id]").data("member");
+    show_invite_modal(member.link);
+});
+$("body").on("click", "a.member-leave", function() {
+    var member = $(this).closest("[data-member-id]").data("member");
+    if (confirm("Are you sure?")===true) {
+        $.post("/group/"+group.id+"/members/"+member.member_id+"/kick", {}, function(r) {
+            if (r.msg) alert(r.msg);
+            if (r.success) {
+                load_members();
+            }
+        }, "json");
+    }
+});
+
+function show_invite_modal(link) {
+    $("#modal_invited_success").modal("show");
+    $("#modal_invited_success p.the-link").html("<input class=form-control type=text readonly onclick=this.select() value='"+link+"'>");
+    $("#modal_invited_success p.the-link-mail").html("<a href='mailto:?subject=LibreSplit+Invitation&body="+escape(link)+"'>Click here to open your mail program to send the link via email</a>");
+}
+
+
+</script>
+
+<div class="modal fade" tabindex="-1" role="dialog" id="modal_invited_success">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title">Invited a new user</h4>
+      </div>
+      <div class="modal-body">
+        <p>A new member was added to the group. Send the following invitation link to the group member to allow them to see, add and modify the tracked expenses.</p>
+        <p class="the-link"></p>
+        <p class="the-link-mail"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-dismiss="modal">Okay</button>
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->

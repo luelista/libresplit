@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="/favicon.ico">
+
+    <title>Libresplit</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="/bower_components/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+    <script>
+    window.libreSplit = {};
+    <check if="{{@SESSION.userid}}"><true>
+    libreSplit.userid = {{ @SESSION.userid }};
+    libreSplit.username = <json from="{{ @SESSION.username }}"/>;
+    </true>
+    <false>
+    libreSplit.userid = null;
+    libreSplit.username = null;
+    </false></check>
+    </script>
+  </head>
+
+  <body>
+
+    <nav class="navbar navbar-default navbar-static-top">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="/">LibreSplit</a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+        <check if="{{ @SESSION.userid }}">
+        <true>
+        <ul class="nav navbar-nav pull-right">
+            <li><a href="/profile">Welcome {{ @SESSION.username }}</a></li>
+            <li><a href="/logout">Logout</a></li>
+        </ul>
+        </true>
+        <false>
+          <form class="navbar-form navbar-right" method="get" action="/login">
+            <div class="form-group">
+              <input type="text" name="identity" placeholder="Enter your OpenID" class="form-control">
+            </div>
+            <button type="submit" class="btn btn-success">Sign in</button>
+          </form>
+        </false>
+        </check>
+        </div><!--/.navbar-collapse -->
+      </div>
+    </nav>
+
+<include href="{{ @content }}" />
+      <hr>
+
+      <footer><div class="container">
+        <p>&copy; 2016 Mira Weller &bull; <a href="/LICENSE">AGPL licensed</a> &bull; <a href="https://github.com/luelista/libresplit">Open source</a></p>
+      </div></footer>
+
+
+    <script>window.jQuery || document.write('<script src="/bower_components/bootstrap/assets/js/vendor/jquery.min.js"><\/script>')</script>
+    <script src="/bower_components/bootstrap/dist/js/bootstrap.min.js"></script>
+  </body>
+</html>
