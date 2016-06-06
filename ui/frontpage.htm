@@ -17,28 +17,64 @@
 
 <div class="container">
 
-<check if="{{ @login_error }}">
-<div class="alert alert-danger">
-    {{ @login_error}}
-</div>
-</check>
-    <p><span class="fa fa-openid"></span>  Login with OpenID: 
-        <form action=/login method=get class=form-inline>
-        <input type=text name=identity class=form-control> <input type=submit value=login class='btn btn-primary'>
-        </form></p>
-        
-<p><a class="btn btn-default" href="/login?identity=https://me.yahoo.com&id=select"><span class="fa fa-yahoo"></span> Login with Yahoo!</a>
-</p>
+    <div class="row">
 
-<p><a class="btn btn-default" href="/login?identity=https://openid.stackexchange.com/&id=select"><span class="fa fa-stack-exchange"></span> Login with StackExchange OpenId</a>
-</p>
+        <div class="col-md-4">
 
-<p><a class="btn btn-default" href="/login?identity=https://steamcommunity.com/openid&id=select"><span class="fa fa-steam"></span> Login with Steam account</a>
-</p>
-
-<p><a class="btn btn-default" href="/login?identity=https://id.teamwiki.de/idpXrds&id=select"><span class="fa fa-openid"></span> Login with Teamwiki</a>
-</p>
+            <p><b>To register</b>, choose one of the provided login methods. The
+            system will automatically create an account for you.</p>
 
 
+            <p><b>To log in</b>, use the same login method you used when logging in for the first time.</p>
+
+        </div>
+
+        <div class="col-md-4">
+
+            <check if="{{ @login_error }}">
+            <div class="alert alert-danger">
+            {{ @login_error}}
+            </div>
+            </check>
+            <p><span class="fa fa-openid"></span>  Login with OpenID: 
+            <form action=/login method=get class=form-inline>
+            <input type=text name=identity class=form-control> <input type=submit value=login class='btn btn-primary'>
+            </form></p>
+
+            <p><a class="btn btn-default" href="/login?identity=https://me.yahoo.com&id=select"><span class="fa fa-yahoo"></span> Login with Yahoo!</a>
+            </p>
+
+            <p><a class="btn btn-default" href="/login?identity=https://openid.stackexchange.com/&id=select"><span class="fa fa-stack-exchange"></span> Login with StackExchange OpenId</a>
+            </p>
+
+            <p><a class="btn btn-default" href="/login?identity=https://steamcommunity.com/openid&id=select"><span class="fa fa-steam"></span> Login with Steam account</a>
+            </p>
+
+            <p><a class="btn btn-default" href="/login?identity=https://id.teamwiki.de/idpXrds&id=select"><span class="fa fa-openid"></span> Login with Teamwiki</a>
+            </p>
+
+            <p><span class="fa fa-envelope"></span>  Login with email address: 
+            <form action=/login method=post class=form-inline>
+            <input type='hidden' name='csrf_token' value='{{ @SESSION.csrf }}'>
+
+            <input type=email name=login_email class=form-control value='{{ @REQUEST.login_email }}'> <input type=submit value=login class='btn btn-primary'>
+            </form></p>
+
+        </div>
+
+
+        <div class="col-md-4">
+            <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+            <!-- libreSplit 2 -->
+            <ins class="adsbygoogle"
+                 style="display:inline-block;width:300px;height:600px"
+                 data-ad-client="ca-pub-5833089092797650"
+                 data-ad-slot="5360706978"></ins>
+            <script>
+            (adsbygoogle = window.adsbygoogle || []).push({});
+            </script>
+        </div>
+
+    </div>
 
 </div>
