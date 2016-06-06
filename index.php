@@ -2,7 +2,9 @@
 
 // Kickstart the framework
 $f3=require('lib/base.php');
+
 session_start();
+
 if(!$_SESSION["csrf"]) $_SESSION["csrf"]=guid();
 
 if ((float)PCRE_VERSION<7.9)
@@ -37,6 +39,9 @@ function sql_now() {
 function guid() {
     return sprintf('%04X%04X-%04X-%04X-%04X-%04X%04X%04X', mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(16384, 20479), mt_rand(32768, 49151), mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535));
 }
+function guid2() {
+    return sprintf('%04X%04X%04X%04X%04X%04X%04X%04X', mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(16384, 20479), mt_rand(32768, 49151), mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535));
+}
 function dbm($model) {
     return new \DB\SQL\Mapper(F3::get('DB'), $model);
 }
@@ -44,25 +49,14 @@ function render_json($json) {
     header("Content-Type: application/json", true);
     echo json_encode($json);
 }
-function papertrail($g, $action, $object_type, $str_repr) {
-    $pt = dbm('papertrail');
-    $pt->actor_user_id = $_SESSION["userid"];
-    $pt->group_id = $g == NULL ? NULL : $g['id'];
-    $pt->action = $action;
-    $pt->object_type = $object_type;
-    $pt->repr = $str_repr;
-    $pt->save();
-    $noti = F3::get('DB')->exec('SELECT u.id,username,email 
-        FROM user u
-            INNER JOIN group_member gm ON u.id=gm.user_id 
-        WHERE gm.notifications > 0 AND gm.group_id = ?',
-        [ $g['id'] ]);
-    foreach($noti as $user) {
-        if ($user['id'] != $_SESSION['userid']) {
-            mail("$user[username] <$user[email]>", "LibreSplit Notification Regarding Group $g[name]", 
-                "Group: ".$g["name"]."\n"."$_SESSION[username] did $action a $object_type ($str_repr)");
-        }
-    }
+function get_mailer() {
+    $mailer = new \SMTP( F3::get('SMTP.host') , F3::get('SMTP.port') , F3::get('SMTP.security') , 
+            F3::get('SMTP.user') , F3::get('SMTP.password') );
+    $mailer->set('X-Mailer', 'libresplit');
+    $mailer->set('From', F3::get('SMTP.from_address'));
+    $mailer->set('Errors-To', F3::get('SMTP.support_address'));
+    $mailer->set('Reply-To', F3::get('SMTP.support_address'));
+    return $mailer;
 }
 class LibreSplit {
     function __construct() {
@@ -87,7 +81,67 @@ class LibreSplit {
             $this->render_layout('frontpage.htm');
         }
     }
+    
+    private function papertrail($g, $action, $object_type, $str_repr) {
+        $pt = dbm('papertrail');
+        $pt->actor_user_id = $_SESSION["userid"];
+        $pt->group_id = $g == NULL ? NULL : $g['id'];
+        $pt->action = $action;
+        $pt->object_type = $object_type;
+        $pt->repr = $str_repr;
+        $pt->save();
+        $noti = F3::get('DB')->exec('SELECT u.id,username,email 
+            FROM user u
+                INNER JOIN group_member gm ON u.id=gm.user_id 
+            WHERE gm.notifications > 0 AND gm.group_id = ?',
+            [ $g['id'] ]);
+        $mailer = get_mailer();
+        $mailer->set('Subject', "LibreSplit Notification Regarding Group $g[name]");
+        $mail_body = "Group: ".$g["name"]."\n"."$_SESSION[username] did $action a $object_type ($str_repr)\n\n\nYou may use the following link to access your account:\n";
+        foreach($noti as $user) {
+            if ($user['id'] != $_SESSION['userid']) {
+                $mailer->set('To', "$user[username] <$user[email]>");
+                $link = $this->make_login_link($user->email);
+                $mailer->send($mail_body . $link . "\n\n");
+            }
+        }
+    }
+    private function make_login_link($email) {
+        $timestamp = time();
+        $token = base64_encode(sha1( F3::get('app_secret') . $timestamp . $email , true));
+        return base_url().'/s?'.base_convert($timestamp,10,36).'&'.urlencode($token).'&'.urlencode($email);
+    }
     function login() {
+        if ($_SESSION['userid']) {
+            $this->login_redirect();
+            return;
+        }
+        if (isset($_COOKIE["libresplitlogin"]) && strlen($_COOKIE["libresplitlogin"]) == 32) {
+            $permatoken = dbm('login_token');
+            $permatoken->load(['token=?', $_COOKIE["libresplitlogin"]]);
+            if (!$permatoken->dry()) {
+                $user = dbm('user');
+                $user->load(['id=?', $permatoken->user_id]);
+                $this->login_user($user);
+                $this->login_redirect();
+                setcookie('libresplitlogin', $permatoken->token, time()+62208000);
+                return;
+            } else {
+                setcookie('libresplitlogin', 'INVALID', time()-9001);
+            }
+        }
+        if ($_POST["login_email"]) {
+            $link = $this->make_login_link($_POST['login_email']);
+            $mailer = get_mailer();
+            $mailer->set('Subject', "LibreSplit Login / Registration");
+            $mailer->set('To', $_POST['login_email']);
+            $ok = $mailer->send("Hi,\n\nTo login to LibreSplit or to create your LibreSplit \naccount, please click the link below:\n\n$link\n\n");
+            if ($ok == TRUE) {
+                $this->render_layout('loginmail.htm');
+                return;
+            } else
+                F3::set('login_error', 'An error has occured while sending a confirmation message to your email address. Please try again later.');
+        }
         if ($_GET["identity"]) {
             $openid=new \Web\OpenID;
             $openid->identity=$_GET["identity"];
@@ -102,13 +156,66 @@ class LibreSplit {
         $this->render_layout('frontpage.htm');
         
     }
+    function mail_verified() {
+        if ($_SESSION['userid']) {
+            $this->login_redirect();
+            return;
+        }
+        list($timestamp, $token, $email) = explode("&", $_SERVER["QUERY_STRING"]);
+        $timestamp = intval(base_convert($timestamp,36,10));
+        $token = urldecode($token);
+        $email = urldecode($email);
+        F3::set('REQUEST.login_email', $email);
+        if ($timestamp+2*3600 < time()) {
+            F3::set('login_error', "This confirmation link has expired. Please request a new link by clicking 'login' below.");
+            $this->render_layout('frontpage.htm');
+            return;
+        }
+        $correct_token = base64_encode(sha1( F3::get('app_secret') . $timestamp . $email , true));
+        if ($token !== $correct_token) {
+            F3::set('login_error', "There seems to be a problem with your confirmation link. Please try copying the complete link from your mail program and paste it into the address bar of your browser.");
+            $this->render_layout('frontpage.htm');
+            return;
+        }
+        
+        $user = dbm('user');
+        $user->load(['email = ?', $email ]);
+        
+        if (strtotime($user->last_login_at) >= $timestamp) {
+            F3::set('login_error', "This confirmation link has already been used. Please request a new link by clicking 'login' below.");
+            $this->render_layout('frontpage.htm');
+            return;
+        }
+        
+        if ($user->dry()) { // first login by this email
+            $user->openid=NULL;
+            $user->email=$email;
+            $user->created_at=sql_now();
+            $user->save();
+        }
+        
+        $this->login_user($user);
+        $this->set_login_token($user);
+        $this->login_redirect();
+    }
+    private function set_login_token($user) {
+        $permatoken = dbm('login_token');
+        $permatoken->user_id = $user->id;
+        $permatoken->token = guid2();
+        $permatoken->save();
+        setcookie('libresplitlogin', $permatoken->token, time()+62208000);
+        $_SESSION["logintoken"] = $permatoken->token;
+    }
     function openid_verified() {
+        if ($_SESSION['userid']) {
+            $this->login_redirect();
+            return;
+        }
         $openid=new \Web\OpenID;
         //var_dump($openid->response());
         if (!$openid->verified()) {
                 F3::set('login_error', "Some error occured while logging in");
                 
-        //var_dump($openid->response());
             $this->render_layout('frontpage.htm');
             return;
         }
@@ -119,36 +226,45 @@ class LibreSplit {
         if ($user->dry()) { // first login by this openid
             $user->openid=$openid->identity;
             $user->created_at=sql_now();
-            $user->save();
-            
         }
         
+        $_SESSION["oid"]=$openid->response();
+        
+        $this->login_user($user);
+        $this->set_login_token($user);
+        $this->login_redirect();
+    }
+    private function login_user($user) {
+        $user->last_login_at = sql_now();
+        $user->save();
         $_SESSION["userid"] = $user->id;
         $_SESSION["username"] = $user->username;
         $_SESSION["email"] = $user->email;
-        $_SESSION["oid"]=$openid->response();
-        
+    }
+    private function login_redirect() {
         if (isset($_SESSION['loginreturn'])) {
             $path = $_SESSION['loginreturn'];
             unset($_SESSION['loginreturn']);
             F3::reroute($path);
-        } elseif (!$user->email) {
+        } elseif (!$_SESSION['email']) {
             F3::reroute('/profile?msg=welcome');
         } else {
             $ug = dbm('group_member');
-            if (1 === $ug->count(['user_id = ?', $user->id])) {
-                $ug->load(['user_id = ?', $user->id]);
+            if (1 === $ug->count(['user_id = ?', $_SESSION['userid']])) {
+                $ug->load(['user_id = ?', $_SESSION['userid']]);
                 F3::reroute('/group/' . $ug->group_id);
             } else {
                 F3::reroute('/groups');
             }
         }
-        
     }
     function logout() {
         unset($_SESSION["userid"]);
         unset($_SESSION["username"]);
         unset($_SESSION["email"]);
+        F3::get('DB')->exec('DELETE FROM login_token WHERE token = ?', [ $_SESSION["logintoken"] ]);
+        unset($_SESSION["logintoken"]);
+        setcookie('libresplitlogin', '', 0);
         F3::reroute('/');
     }
     private function require_login($require_email=TRUE) {
@@ -193,7 +309,6 @@ class LibreSplit {
         if ($user->dry()) F3::error(404);
         F3::set('profile', $user);
         
-        
         $this->render_layout('profile.htm');
     }
     function update_profile() {
@@ -209,7 +324,7 @@ class LibreSplit {
             }
         
         $user->save();
-        papertrail(NULL, "update", "profile", "$user[username] $user[email]");
+        $this->papertrail(NULL, "update", "profile", "$user[username] $user[email]");
         if (!$user->email)
             F3::reroute('/profile?msg=email');
         else {
@@ -243,7 +358,7 @@ class LibreSplit {
         $g->color = sprintf('#%06X', mt_rand(0, 0xFFFFFF));
         $g->comment = '';
         $g->save();
-        papertrail($g, "add", "group", "");
+        $this->papertrail($g, "add", "group", "");
         
         $gm = dbm('group_member');
         $gm->group_id = $g->id;
@@ -252,7 +367,7 @@ class LibreSplit {
         $gm->joined_at = sql_now();
         $gm->notifications = 1;
         $gm->save();
-        papertrail($g, "add", "group_member", "group creator is now member");
+        $this->papertrail($g, "add", "group_member", "group creator is now member");
         
         F3::reroute('/group/' . $g->id);
     }
@@ -296,7 +411,7 @@ class LibreSplit {
                 $pt.="$field=".$_POST[$field]."\n";
             }
         $g->save();
-        papertrail($g, "update", "group", $pt);
+        $this->papertrail($g, "update", "group", $pt);
         
         render_json(["success" => true]);
     }
@@ -325,7 +440,7 @@ class LibreSplit {
         render_json(["success"=>true, "members" => $members]);
     }
     
-    private function store_expense_from_post_data($exp) {
+    private function store_expense_from_post_data($g, $exp) {
         $db = F3::get('DB');
         $db->begin();
         
@@ -360,7 +475,7 @@ class LibreSplit {
             $db->rollback(); throw new InvalidArgumentException("sum of split amounts $sum must match expense amount {$exp->amount}");
         }
         $db->commit();
-        papertrail($g, $is_new?"add":"update", "expense", "{$exp->type}  {$exp->description}  {$exp->amount}  {$exp->who_paid}  {$exp->date}");
+        $this->papertrail($g, $is_new?"add":"update", "expense", "{$exp->type}  {$exp->description}  {$exp->amount}  {$exp->who_paid}  {$exp->date}");
         
     }
     function create_expense() {
@@ -372,7 +487,7 @@ class LibreSplit {
             $exp->group_id = $g->id;
             $exp->type = "Expense";
             $exp->date = sql_now();
-            $this->store_expense_from_post_data($exp);
+            $this->store_expense_from_post_data($g, $exp);
             
             render_json(["success"=>true, 'id'=>$exp->id]);
         }catch(Exception $ex) {
@@ -386,7 +501,7 @@ class LibreSplit {
             
             $exp = dbm('expense');
             $exp->load(['group_id=? AND id=?', $g->id, F3::get('PARAMS.expense')]);
-            $this->store_expense_from_post_data($exp);
+            $this->store_expense_from_post_data($g, $exp);
             
             switch (\Web::instance()->acceptable(['text/html','application/json'])) {
             case 'application/json':  render_json(["success"=>true, 'id'=>$exp->id]); break;
@@ -439,7 +554,7 @@ class LibreSplit {
         $gm->invited_token = guid();
         $gm->created_at = sql_now();
         $gm->save();
-        papertrail($g, "add", "group_member", "invited name={$gm->invited_name}");
+        $this->papertrail($g, "add", "group_member", "invited name={$gm->invited_name}");
         
         render_json(["success"=>true, 'link' => base_url().'/join/'.$gm->invited_token]);
         
@@ -455,7 +570,7 @@ class LibreSplit {
         $gm->invited_name = $_POST["display_name"];
         $gm->invited_token = guid();
         $gm->save();
-        papertrail($g, "update", "group_member", "member renamed: {$gm->invited_name}");
+        $this->papertrail($g, "update", "group_member", "member renamed: {$gm->invited_name}");
         
         render_json(["success"=>true, ]);
         
@@ -479,7 +594,7 @@ class LibreSplit {
         $gm->invited_token = guid();
         $gm->joined_at = NULL;
         $gm->save();
-        papertrail($g, "update", "group_member", "member left: {$gm->invited_name}");
+        $this->papertrail($g, "update", "group_member", "member left: {$gm->invited_name}");
         
         render_json(["success"=>true, ]);
         
@@ -494,7 +609,7 @@ class LibreSplit {
         $exp->load(['group_id=? AND id=?', $g->id, F3::get('PARAMS.expense')]);
         if($exp->dry()){ render_json(["success"=>false ]); return; }
         $exp->erase();
-        papertrail($g, "delete", "expense", "{$exp->type}  {$exp->description}  {$exp->amount}  {$exp->who_paid}  {$exp->date}");
+        $this->papertrail($g, "delete", "expense", "{$exp->type}  {$exp->description}  {$exp->amount}  {$exp->who_paid}  {$exp->date}");
         
         
         render_json(["success"=>true ]);
@@ -528,7 +643,7 @@ class LibreSplit {
         $gm->user_id = $_SESSION['userid'];
         $gm->joined_at = sql_now();
         $gm->save();
-        papertrail($g, "update", "group_member", "member joined");
+        $this->papertrail($g, "update", "group_member", "member joined");
         
         F3::reroute('/group/'.$gm->group_id);
     }
