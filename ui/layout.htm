@@ -15,15 +15,17 @@
     <link href="/style/style.css" rel="stylesheet">
     <script src="/bower_components/jquery/dist/jquery.min.js"></script>
     <script>
-    window.libreSplit = {};
-    <check if="{{@SESSION.userid}}"><true>
-    libreSplit.userid = {{ @SESSION.userid }};
-    libreSplit.username = <json from="{{ @SESSION.username }}"/>;
-    </true>
-    <false>
-    libreSplit.userid = null;
-    libreSplit.username = null;
-    </false></check>
+      window.libreSplit = {};
+      <check if="{{@SESSION.userid}}">
+      <true>
+      libreSplit.userid = {{ @SESSION.userid }};
+      libreSplit.username = <json from="{{ @SESSION.username }}"/>;
+      </true>
+      <false>
+      libreSplit.userid = null;
+      libreSplit.username = null;
+      </false>
+      </check>
     </script>
   </head>
 
@@ -61,19 +63,20 @@
       </div>
     </nav>
 
-<include href="{{ @content }}" />
-      <hr>
+    <include href="{{ @content }}" />
 
-      <footer><div class="container">
-        <p>&copy; 2016 Mira Weller 
-        &bull; <a href="/LICENSE">AGPL licensed</a> 
-        &bull; <a href="https://github.com/luelista/libresplit">Open source</a>
-        &bull; <a href="https://github.com/luelista/libresplit/issues/new">Report a bug</a>
-        </p>
-      </div></footer>
+    <hr>
 
+    <footer><div class="container">
+      <p>&copy; 2016 Mira Weller
+      &bull; <a href="/LICENSE">AGPL licensed</a>
+      &bull; <a href="https://github.com/luelista/libresplit">Open source</a>
+      &bull; <a href="https://github.com/luelista/libresplit/issues/new">Report a bug</a>
+      </p>
+    </div></footer>
 
     <script>window.jQuery || document.write('<script src="/bower_components/bootstrap/assets/js/vendor/jquery.min.js"><\/script>')</script>
     <script src="/bower_components/bootstrap/dist/js/bootstrap.min.js"></script>
+
   </body>
 </html>

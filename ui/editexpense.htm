@@ -3,64 +3,53 @@
     <h2>Group <b>{{@group.name}}</b></h2>
     <check if="{{ @membership.notifications }}">
     <true>
-    <p><label for="chk_mailnotify" style="font-weight:normal;margin-bottom:0;">
-    <input type=checkbox checked onclick='switchNotifications(false)' id="chk_mailnotify"> 
-    You receive mail notifications for this group. </label></p>
+      <p><label for="chk_mailnotify" style="font-weight:normal;margin-bottom:0;">
+      <input type=checkbox checked onclick='switchNotifications(false)' id="chk_mailnotify">
+      You receive mail notifications for this group. </label></p>
     </true>
     <false>
-    <p><label for="chk_mailnotify" style="font-weight:normal;margin-bottom:0;">
-    <input type=checkbox onclick='switchNotifications(true)' id="chk_mailnotify"> 
-    You do not receive mail notifications for this group.</label></p>
+      <p><label for="chk_mailnotify" style="font-weight:normal;margin-bottom:0;">
+      <input type=checkbox onclick='switchNotifications(true)' id="chk_mailnotify">
+      You do not receive mail notifications for this group.</label></p>
     </false>
     </check>
-    
-    
+
     <p>Created at {{@group.created_at}}</p>
     <p id="settleup"></p>
   </div>
 </div>
 
-
-
 <div class=container>
-<br>
+  <form action='/group/{{@group.id}}/expenses/{{@expense.id}}' method='post'>
+    <input type='hidden' name='csrf_token' value='{{ @SESSION.csrf }}'>
+    <input type='hidden' name='amount_float' value='YES'>
 
-<form action='/group/{{@group.id}}/expenses/{{@expense.id}}' method='post'>
-<input type='hidden' name='csrf_token' value='{{ @SESSION.csrf }}'>
-<input type='hidden' name='amount_float' value='YES'>
+    <div class="form-group"><label for="description">Description:</label>
+    <input class="form-control" type="text" name="description" value="{{@expense.description}}" id="description"></div>
 
-<div class="form-group"><label for="description">Description:</label>
-<input class="form-control" type="text" name="description" value="{{@expense.description}}" id="description"></div>
+    <div class="form-group"><label for="amount">Amount:</label>
+    <input class="form-control" style="max-width:200px;" type="number" step="0.01" required name="amount" value="{{sprintf('%0.02F',@expense.amount/100)}}" id="amount"></div>
 
-<div class="form-group"><label for="amount">Amount:</label>
-<input class="form-control" style="max-width:200px;" type="number" step="0.01" required name="amount" value="{{sprintf('%0.02F',@expense.amount/100)}}" id="amount"></div>
+    <div class="form-group"><label for="who_paid">Who Paid:</label>
+    <select  class="form-control" style="max-width:200px" required class="memberselect" id="who_paid" name="who_paid">
+    <repeat group="{{@members}}" value="{{@d}}">
+    <option value="{{@d.member_id}}" {{ @d.member_id==@expense.who_paid ? 'selected':'' }}>{{@d.display_name}}</option>
+    </repeat>
+    </select></div>
 
-<div class="form-group"><label for="who_paid">Who Paid:</label>
-<select  class="form-control" style="max-width:200px" required class="memberselect" id="who_paid" name="who_paid">
-<repeat group="{{@members}}" value="{{@d}}">
-<option value="{{@d.member_id}}" {{ @d.member_id==@expense.who_paid ? 'selected':'' }}>{{@d.display_name}}</option>
-</repeat>
-</select></div>
+    <div class="form-group"><label for="date">Date:</label>
+    <input class="form-control" style="max-width:200px;" type="date" required name="date" value="{{@expense.date}}" id="date"></div>
 
-<div class="form-group"><label for="date">Date:</label>
-<input class="form-control" style="max-width:200px;" type="date" required name="date" value="{{@expense.date}}" id="date"></div>
+    <table class=table>
+    <repeat group="{{@splits}}" value="{{@d}}">
+      <tr>
+        <td>{{ @d.display_name }}</td>
+        <td><input type="number" step="0.01" required name="split[{{@d.member_id}}]" value="{{sprintf('%0.02F',@d.amount/100)}}"></td>
+      </tr>
+    </repeat>
+    </table>
 
-<table class=table>
-<repeat group="{{@splits}}" value="{{@d}}">
-<tr>
-<td>{{ @d.display_name }}</td>
-<td><input type="number" step="0.01" required name="split[{{@d.member_id}}]" value="{{sprintf('%0.02F',@d.amount/100)}}"></td>
-</tr>
-</repeat>
-</table>
+    <div class="form-group"><input class="btn" type="submit" value="OK"></div>
 
-<div class="form-group">
-<input class="btn" type="submit" value="OK"></div>
-
-</form>
-
-<!--
-{{print_r(@@SESSION.oid,1)}}
--->
-
+  </form>
 </div>
