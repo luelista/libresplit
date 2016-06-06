@@ -2,18 +2,18 @@
   <div class="container">
     <h2>Group <b>{{@group.name}}</b></h2>
     <check if="{{ !@readonly }}">
-        <check if="{{ @membership.notifications }}">
-        <true>
+      <check if="{{ @membership.notifications }}">
+      <true>
         <p><label for="chk_mailnotify" style="font-weight:normal;margin-bottom:0;">
         <input type=checkbox checked onclick='switchNotifications(false)' id="chk_mailnotify"> 
         You receive mail notifications for this group. </label></p>
-        </true>
-        <false>
+      </true>
+      <false>
         <p><label for="chk_mailnotify" style="font-weight:normal;margin-bottom:0;">
         <input type=checkbox onclick='switchNotifications(true)' id="chk_mailnotify"> 
         You do not receive mail notifications for this group.</label></p>
-        </false>
-        </check>
+      </false>
+      </check>
     </check>
     
     <p>Created at {{@group.created_at}}</p>
@@ -23,69 +23,67 @@
 
 <div class=container>
 
+  <h3>Expenses</h3>
+  <form id="expense_form">
+    <table class="table">
+      <thead>
+        <tr><th>Expense Description</th><th>Amount Paid</th><th>Paid By</th>
+        <th>Split Amongst</th><th>Action</th></tr>
+      </thead>
+      <check if="{{ !@readonly }}">
+        <tr>
+          <td><input type="text" id="add_description" placeholder="Enter description of new expense"></td>
+          <td><nobr>€&nbsp;<input type="number" id="add_amount" step="0.01" required style="width:100px" onchange="calcSplitAmounts()"></nobr></td>
+          <td><select id="add_who_paid" required class="memberselect">
+          <option value=""></option>
+          </select></td>
+          <td><select id="add_split" multiple size=4 class="memberselect" onchange="calcSplitAmounts()"></select></td>
+          <td><input class="btn btn-success" type="button" value="Add" id="exp_add_btn"></td>
+        </tr>
+      </check>
+      <repeat group="{{ @expenses }}" value="{{@d}}">
+        <tr data-expense-id="{{@d.id}}">
+          <td>{{ @d.description }}<br><time>{{ @d.date }}</time></td>
+          <td>€&nbsp;{{ sprintf("%0.02f",@d.amount/100) }}</td>
+          <td>{{ @d.who_paid_name }}</td>
+          <td>{{ @d.split_members }}</td>
+          <td><check if="{{ !@readonly }}">
+            <a href="javascript:" class="btn btn-default btn-xs expense-copy" title="Copy"><span class="fa fa-clipboard"></span></a>
+            <a href="/group/{{@group.id}}/expenses/{{@d.id}}" class="btn btn-default btn-xs" title="Edit"><span class="fa fa-pencil-square-o"></span></a>
+            <a href="/group/{{@group.id}}/expenses/{{@d.id}}/delete" class="btn btn-default btn-xs expense-delete" title="Delete"><span class="fa fa-trash"></span></a>
+          </check></td>
+        </tr>
+      </repeat>
 
-<h3>Expenses</h3>
-<form id="expense_form">
-<table class="table">
-<thead><tr><th>Expense Description</th><th>Amount Paid</th><th>Paid By</th>
-<th>Split Amongst</th><th>Action</th></tr></thead>
-<check if="{{ !@readonly }}">
-<tr>
-<td><input type="text" id="add_description" placeholder="Enter description of new expense"></td>
-<td><nobr>€&nbsp;<input type="number" id="add_amount" step="0.01" required style="width:100px" onchange="calcSplitAmounts()"></nobr></td>
-<td><select id="add_who_paid" required class="memberselect">
-<option value=""></option>
-</select></td>
-<td><select id="add_split" multiple size=4 class="memberselect" onchange="calcSplitAmounts()"></select></td>
-<td><input class="btn btn-success" type="button" value="Add" id="exp_add_btn"></td>
-</tr>
-</check>
-<repeat group="{{ @expenses }}" value="{{@d}}">
-<tr data-expense-id="{{@d.id}}">
-    <td>{{ @d.description }}<br><time>{{ @d.date }}</time></td>
-    <td>€&nbsp;{{ sprintf("%0.02f",@d.amount/100) }}</td>
-    <td>{{ @d.who_paid_name }}</td>
-    <td>{{ @d.split_members }}</td>
-    <td><check if="{{ !@readonly }}">
-    <a href="javascript:" class="btn btn-default btn-xs expense-copy" title="Copy"><span class="fa fa-clipboard"></span></a>
-    <a href="/group/{{@group.id}}/expenses/{{@d.id}}" class="btn btn-default btn-xs" title="Edit"><span class="fa fa-pencil-square-o"></span></a>
-    <a href="/group/{{@group.id}}/expenses/{{@d.id}}/delete" class="btn btn-default btn-xs expense-delete" title="Delete"><span class="fa fa-trash"></span></a>
-    </check></td>
-</tr>
-</repeat>
+    </table>
+  </form>
 
-</table>
-</form>
+  <check if="{{ !@readonly }}">
+    <h3>Members</h3>
 
-<check if="{{ !@readonly }}">
-<h3>Members</h3>
-
-<table class=table>
-<thead><tr><th>Name</th><th>Email</th><th>Joined?</th><th>Action</th></tr></thead>
-<tbody id="member_list">
-
-</tbody>
-<tfoot>
-<tr><td colspan=5><form class="form-inline">
-<input type="text" class="form-control" id="invite_name" placeholder="Name">
-<input type="button" class="btn btn-success" value="Invite" id="invite_btn">
-</form>
-</td>
-</tr>
-</tfoot>
-</table>
+    <table class=table>
+      <thead><tr><th>Name</th><th>Email</th><th>Joined?</th><th>Action</th></tr></thead>
+      <tbody id="member_list">
+      </tbody>
+      <tfoot>
+        <tr><td colspan=5>
+          <form class="form-inline">
+            <input type="text" class="form-control" id="invite_name" placeholder="Name">
+            <input type="button" class="btn btn-success" value="Invite" id="invite_btn">
+          </form>
+        </td></tr>
+      </tfoot>
+    </table>
 
 
-<h3>Share</h3>
+    <h3>Share</h3>
 
-<p>The following link allows read-only access to this page. </p>
-<input type="text" readonly onmouseenter="this.select()" value="{{base_url()}}/group/{{@group.id}}?t={{@group.readonly_token}}" class=form-control>
-</check>
+    <p>The following link allows read-only access to this page. </p>
+    <input type="text" readonly onmouseenter="this.select()" value="{{base_url()}}/group/{{@group.id}}?t={{@group.readonly_token}}" class=form-control>
+
+  </check>
 
 </div>
-<style>
-time {font-size:80%;color: #666;}
-</style>
 
 
 <script>
@@ -334,12 +332,5 @@ function show_invite_modal(link) {
   </div><!-- /.modal-dialog -->
 </div><!-- /.modal -->
 
-<script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
-<!-- libreSplit -->
-<ins class="adsbygoogle"
-     style="display:inline-block;width:728px;height:90px"
-     data-ad-client="ca-pub-5833089092797650"
-     data-ad-slot="3883973770"></ins>
-<script>
-(adsbygoogle = window.adsbygoogle || []).push({});
-</script>
+<include href="group.ad.htm"/>
+
