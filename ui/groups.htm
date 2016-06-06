@@ -10,31 +10,26 @@
 </div>
 
 <div class=container>
-<br>
-<table class="table table-hover">
-<thead><tr><th>Group Name</th><th>Members</th></tr></thead>
-<repeat group="{{@groups}}" value="{{@d}}">
-<tr class="clickable-row"><td><a href="/group/{{@d.id}}">{{@d.name}}</a></td><td>{{@d.members}}</td></tr>
-</repeat>
-<tfoot>
-<tr><td colspan=2>
-<form action='/groups' method='post' class='form-inline'>
-<input class="form-control" type="text" name="name" id="groupname" placeholder="Enter group name">
-<input class="btn" type="submit" value="Start a group">
-</form>
-</td></tr>
-</tfoot>
-</table>
-
-
-
-
+  <table class="table table-hover">
+  <thead><tr><th>Group Name</th><th>Members</th></tr></thead>
+  <tbody>
+    <repeat group="{{@groups}}" value="{{@d}}">
+    <tr class="clickable-row"><td><a href="/group/{{@d.id}}">{{@d.name}}</a></td><td>{{@d.members}}</td></tr>
+    </repeat>
+  </tbody>
+  <tfoot>
+    <tr><td colspan=2>
+      <form action='/groups' method='post' class='form-inline'>
+        <input class="form-control" type="text" name="name" id="groupname" placeholder="Enter group name">
+        <input class="btn" type="submit" value="Start a group">
+      </form>
+    </td></tr>
+  </tfoot>
+  </table>
 </div>
-<style>
-.clickable-row {cursor:pointer}
-</style>
+
 <script>
-$(".clickable-row").click(function() {
-    location=$("a",this).first().attr("href");
-});
+  $(".clickable-row").click(function() {
+      location=$("a",this).first().attr("href");
+  });
 </script>
