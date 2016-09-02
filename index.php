@@ -99,14 +99,15 @@ class LibreSplit {
         $mailer->set('Subject', "LibreSplit Notification Regarding Group $g[name]");
         $mail_body = "Group: ".$g["name"]."\n"."$_SESSION[username] did $action a $object_type ($str_repr)\n\n\nYou may use the following link to access your account:\n";
         foreach($noti as $user) {
-            if ($user['id'] != $_SESSION['userid']) {
+            if ($user['id'] != $_SESSION['userid'] && $user['email']) {
                 $mailer->set('To', "$user[username] <$user[email]>");
-                $link = $this->make_login_link($user->email);
+                $link = $this->make_login_link($user['email']);
                 $mailer->send($mail_body . $link . "\n\n");
             }
         }
     }
     private function make_login_link($email) {
+        if (!$email) throw new Exception("missing email address in make_login_link");
         $timestamp = time();
         $token = base64_encode(sha1( F3::get('app_secret') . $timestamp . $email , true));
         return base_url().'/s?'.base_convert($timestamp,10,36).'&'.urlencode($token).'&'.urlencode($email);

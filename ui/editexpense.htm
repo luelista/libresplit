@@ -1,25 +1,13 @@
 <div class="headertron pattern" style="background-color: #{{@group.color}};">
   <div class="container">
-    <h2>Group <b>{{@group.name}}</b></h2>
-    <check if="{{ @membership.notifications }}">
-    <true>
-      <p><label for="chk_mailnotify" style="font-weight:normal;margin-bottom:0;">
-      <input type=checkbox checked onclick='switchNotifications(false)' id="chk_mailnotify">
-      You receive mail notifications for this group. </label></p>
-    </true>
-    <false>
-      <p><label for="chk_mailnotify" style="font-weight:normal;margin-bottom:0;">
-      <input type=checkbox onclick='switchNotifications(true)' id="chk_mailnotify">
-      You do not receive mail notifications for this group.</label></p>
-    </false>
-    </check>
+    <h2><a href="/group/{{@group.id}}" style="color: white">Group <b>{{@group.name}}</b></a></h2>
 
     <p>Created at {{@group.created_at}}</p>
-    <p id="settleup"></p>
   </div>
 </div>
 
 <div class=container>
+  <h3>Edit Expense</h3>
   <form action='/group/{{@group.id}}/expenses/{{@expense.id}}' method='post'>
     <input type='hidden' name='csrf_token' value='{{ @SESSION.csrf }}'>
     <input type='hidden' name='amount_float' value='YES'>
