@@ -19,5 +19,8 @@ commands in that database.
 Copy the `htconfig-sample.ini` to `.htconfig.ini` and fill in your database 
 connection details.
 
+## Alternative open-source efforts
 
+* https://github.com/ysangkok/cherrypy-networkx-ledger
+* https://github.com/tykling/buddyledger
 
