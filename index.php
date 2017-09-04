@@ -12,19 +12,20 @@ $f3->config('.htconfig.ini');
 $f3->set('DB', new \DB\SQL(  $f3->get('db.dsn'),
                     $f3->get('db.user'),
                     $f3->get('db.password')
-                ));
+                  ));
+
 
 \Template::instance()->extend('json',function($node){
     $attr = $node['@attrib'];
     $data = \Template::instance()->token($attr['from']);
-	return '<?php echo json_encode('.$data.'); ?>';
-	/*
-	array(1) {
-		["@attrib"]=> array(1) {
-			["src"]=> string(25) "{{'ui/images/'.@article.image}}"
-		}
-	}
-	*/
+    return '<?php echo json_encode('.$data.'); ?>';
+    /*
+    array(1) {
+      ["@attrib"]=> array(1) {
+        ["src"]=> string(25) "{{'ui/images/'.@article.image}}"
+      }
+    }
+    */
 });
 function base_url() {
     return F3::get('SCHEME').'://'.F3::get('HOST');
@@ -384,7 +385,7 @@ class LibreSplit {
         $g->id = guid();
         $g->readonly_token = guid();
         $g->name = $_POST['name'];
-        $g->color = sprintf('#%06X', mt_rand(0, 0xFFFFFF));
+        $g->color = sprintf('%06X', mt_rand(0, 0xFFFFFF));
         $g->comment = '';
         $g->save();
         $this->papertrail($g, "add", "group", "");
