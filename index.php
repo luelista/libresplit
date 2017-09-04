@@ -424,6 +424,13 @@ class LibreSplit {
         $this->api_result(['group', 'expenses']);
         $this->render_layout('group.htm');
     }
+    function delete_group() {
+        $this->require_login();
+        
+		$g = $this->require_group(F3::get('PARAMS.id'));
+		$ok = F3::get('DB')->exec('UPDATE group_member SET user_id = NULL WHERE group_id = ?', [ $g->id ]);
+		var_dump($ok);
+	}
     function update_group() {
         $this->require_login();
         

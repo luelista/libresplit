@@ -81,6 +81,10 @@
     <p>The following link allows read-only access to this page. </p>
     <input type="text" readonly onmouseenter="this.select()" value="{{base_url()}}/group/{{@group.id}}?t={{@group.readonly_token}}" class=form-control>
 
+
+	<h3>Delete</h3>
+	<input type="button" value="Delete group" onclick="deleteGroup();" class="btn btn-danger">
+
   </check>
 
 </div>
@@ -310,6 +314,18 @@ function show_invite_modal(link) {
     $("#modal_invited_success p.the-link-mail").html("<a href='mailto:?subject=LibreSplit+Invitation&body="+escape(link)+"'>Click here to open your mail program to send the link via email</a>");
 }
 
+function deleteGroup() {
+	if (confirm("Are you sure you want to delete group "+group.name+"?")) {
+		$.ajax({
+			method: "DELETE",
+			url: "/group/"+group.id,
+			success: function() {
+				alert("Group deleted");
+				location="/groups";
+			}
+		});
+	}
+}
 
 </script>
 
