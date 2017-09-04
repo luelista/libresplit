@@ -28,3 +28,35 @@ time {
 .topmargin { margin-top: 1em; }
 
 
+@media only screen and (max-width: 760px) {
+  #expense_form table, #expense_form tr {
+    display: block; clear: both; border-top: 1px solid #888;
+  }
+  #expense_form thead {display:none}
+  #expense_form td {
+    display: inline-block; border: none;
+  }
+  #expense_form td:nth-child(1) {
+    float: left; margin-bottom: 0;
+  }
+  #expense_form td:nth-child(2) {
+    float: right;
+  }
+  #expense_form td:nth-child(3) {
+    float: right;
+  }
+  #expense_form td:nth-child(3)::after {
+    content: " paid";
+  }
+  #expense_form td:nth-child(4) {
+    display: block; clear :both; padding-top: 0;
+  }
+  #expense_form td:nth-child(5) {
+    float: right; margin-top: -3em;
+  }
+  #expense_form .input-row td:nth-child(5) {
+    margin-top: 0;
+  }
+  #expense_form .btn-xs { padding: 5px; width: 30px;}
+}
+

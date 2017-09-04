@@ -31,13 +31,13 @@
         <th>Split Amongst</th><th>Action</th></tr>
       </thead>
       <check if="{{ !@readonly }}">
-        <tr>
-          <td><input type="text" id="add_description" placeholder="Enter description of new expense"></td>
+        <tr class="input-row">
+          <td><input type="text" id="add_description" placeholder="Enter description of new expense" style="width: 100%;"></td>
           <td><nobr>€&nbsp;<input type="number" id="add_amount" step="0.01" required style="width:100px" onchange="calcSplitAmounts()"></nobr></td>
           <td><select id="add_who_paid" required class="memberselect">
           <option value=""></option>
           </select></td>
-          <td><select id="add_split" multiple size=4 class="memberselect" onchange="calcSplitAmounts()"></select></td>
+          <td><select id="add_split" multiple size=4 class="memberselect" onchange="calcSplitAmounts()" style="width: 100%;"></select></td>
           <td><input class="btn btn-success" type="button" value="Add" id="exp_add_btn"></td>
         </tr>
       </check>
