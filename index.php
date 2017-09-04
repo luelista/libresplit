@@ -3,10 +3,6 @@
 // Kickstart the framework
 $f3=require('lib/base.php');
 
-session_start();
-
-if(!$_SESSION["csrf"]) $_SESSION["csrf"]=guid();
-
 if ((float)PCRE_VERSION<7.9)
         trigger_error('PCRE version is out of date');
 
@@ -60,6 +56,32 @@ function get_mailer() {
 }
 class LibreSplit {
     function __construct() {
+        $tokenAuth = $_SERVER["HTTP_AUTHORIZATION"] ?: $_SERVER["REDIRECT_HTTP_AUTHORIZATION"] ?: $_SERVER["REDIRECT_REDIRECT_HTTP_AUTHORIZATION"];
+        if (strpos($tokenAuth, "Bearer ") === 0) {
+          $permatoken = dbm('login_token');
+          $permatoken->load(['token=?', substr($tokenAuth, 7)]);
+          if (!$permatoken->dry()) {
+            $user = dbm('user');
+            $user->load(['id=?', $permatoken->user_id]);
+            $this->login_user($user);
+          } else {
+            header("HTTP/1.1 403 Invalid Token");
+            return;
+          }
+        } else {
+          session_start();
+          if(!$_SESSION["csrf"]) $_SESSION["csrf"]=guid();
+          $this->try_tokencookie_login();
+        }
+
+    }
+    private function api_result($values) {
+        if (strpos($_SERVER['HTTP_ACCEPT'], 'application/json') === 0 || $_GET['format'] == 'json') {
+            header('Content-Type: application/json; charset=utf8');
+            foreach($values as $x) $dict[$x] = F3::get($x);
+            echo json_encode( $dict );
+            exit();
+        }
     }
     private function render_layout($content) {
         F3::set('content', $content);
@@ -71,6 +93,7 @@ class LibreSplit {
         $this->render_framework_errmes();
     }
     function render_framework_errmes() {
+        $this->api_result(['ERROR.status', 'ERROR.text']);
         F3::set('content', 'errmes.htm');
         echo \Template::instance()->render('layout.htm');
     }
@@ -112,24 +135,28 @@ class LibreSplit {
         $token = base64_encode(sha1( F3::get('app_secret') . $timestamp . $email , true));
         return base_url().'/s?'.base_convert($timestamp,10,36).'&'.urlencode($token).'&'.urlencode($email);
     }
-    function login() {
-        if ($_SESSION['userid']) {
-            $this->login_redirect();
-            return;
-        }
-        if (isset($_COOKIE["libresplitlogin"]) && strlen($_COOKIE["libresplitlogin"]) == 32) {
+
+    private function try_tokencookie_login() {
+        if ((!$_SESSION['userid']) && isset($_COOKIE["libresplitlogin"]) && strlen($_COOKIE["libresplitlogin"]) == 32) {
             $permatoken = dbm('login_token');
             $permatoken->load(['token=?', $_COOKIE["libresplitlogin"]]);
             if (!$permatoken->dry()) {
                 $user = dbm('user');
                 $user->load(['id=?', $permatoken->user_id]);
                 $this->login_user($user);
-                $this->login_redirect();
-                setcookie('libresplitlogin', $permatoken->token, time()+62208000);
-                return;
+                //$this->login_redirect();
+                setcookie('libresplitlogin', $permatoken->token, time()+62208000, '/');
+                return TRUE;
             } else {
                 setcookie('libresplitlogin', 'INVALID', time()-9001);
             }
+        }
+        return FALSE;
+    }
+    function login() {
+        if ($_SESSION['userid']) {
+            $this->login_redirect();
+            return;
         }
         if ($_POST["login_email"]) {
             $link = $this->make_login_link($_POST['login_email']);
@@ -204,7 +231,7 @@ class LibreSplit {
         $permatoken->user_id = $user->id;
         $permatoken->token = guid2();
         $permatoken->save();
-        setcookie('libresplitlogin', $permatoken->token, time()+62208000);
+        setcookie('libresplitlogin', $permatoken->token, time()+62208000, '/');
         $_SESSION["logintoken"] = $permatoken->token;
     }
     function openid_verified() {
@@ -347,6 +374,7 @@ class LibreSplit {
                 ', [ $_SESSION['userid'] ]);
         
         F3::set('groups', $groups);
+        $this->api_result(['groups']);
         $this->render_layout('groups.htm');
     }
     function create_group() {
@@ -392,7 +420,7 @@ class LibreSplit {
         GROUP BY e.id
         ORDER BY e.date DESC,e.created_at DESC', [$g->id]);
         F3::set('expenses', $e);
-        
+        $this->api_result(['group', 'expenses']);
         $this->render_layout('group.htm');
     }
     function update_group() {
@@ -412,7 +440,7 @@ class LibreSplit {
                 $pt.="$field=".$_POST[$field]."\n";
             }
         $g->save();
-        $this->papertrail($g, "update", "group", $pt);
+        if ($pt) $this->papertrail($g, "update", "group", $pt);
         
         render_json(["success" => true]);
     }
