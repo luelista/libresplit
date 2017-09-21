@@ -114,14 +114,16 @@ class LibreSplit {
         $pt->object_type = $object_type;
         $pt->repr = $str_repr;
         $pt->save();
-        $noti = F3::get('DB')->exec('SELECT u.id,username,email 
+        $noti = F3::get('DB')->exec('SELECT u.id,username,email
             FROM user u
-                INNER JOIN group_member gm ON u.id=gm.user_id 
+                INNER JOIN group_member gm ON u.id=gm.user_id
             WHERE gm.notifications > 0 AND gm.group_id = ?',
             [ $g['id'] ]);
         $mailer = get_mailer();
-        $mailer->set('Subject', "LibreSplit Notification Regarding Group $g[name]");
-        $mail_body = "Group: ".$g["name"]."\n"."$_SESSION[username] did $action a $object_type ($str_repr)\n\n\nYou may use the following link to access your account:\n";
+        $mailer->set('Subject', "[LibreSplit $g[name]] $_SESSION[username] ${action}s $object_type");
+        $mail_body = "L i b r e S p l i t   N o t i f i c a t i o n\nGroup: ".$g["name"]."\n*$_SESSION[username] ${action}s $object_type*\n".
+            "> " . str_replace("\n", "\n> ", $str_repr) .
+            "\n\n\nYou may use the following link to access your account:\n";
         foreach($noti as $user) {
             if ($user['id'] != $_SESSION['userid'] && $user['email']) {
                 $mailer->set('To', "$user[username] <$user[email]>");
@@ -476,14 +478,20 @@ class LibreSplit {
         $members = $this->get_group_members($g);
         render_json(["success"=>true, "members" => $members]);
     }
-    
+    private function find_member($members, $id) {
+        foreach($members as $m)
+            if ($m['member_id'] == $id)
+                return $m;
+    }
     private function store_expense_from_post_data($g, $exp) {
+        $members = $this->get_group_members($g);
+
         $db = F3::get('DB');
         $db->begin();
-        
+
         $factor = 1;
         if ($_POST['amount_float']) $factor=100;
-        
+
         $exp->who_paid = intval($_POST['who_paid']);
         if (isset($_POST['amount'])) $exp->amount = round($_POST['amount']*$factor,0);
         $exp->description = $_POST['description'];
@@ -496,10 +504,13 @@ class LibreSplit {
         if (!$is_new) $db->exec("DELETE FROM expense_split_user WHERE expense_id = ?", [ $exp->id ]);
         $exp->updated_at = sql_now();
         $exp->save();
-        
+
         $split = $_POST['split'];
         $sum = 0;
+        $split_names = [];
         foreach($split as $split_member_id => $split_amount) {
+            $member_data = $this->find_member($members, $split_member_id);
+            if (!$member_data) throw new InvalidArgumentException("invalid member id $split_member_id");
             $esu = dbm('expense_split_user');
             $esu->expense_id = $exp->id;
             $esu->member_id = $split_member_id;
@@ -507,13 +518,14 @@ class LibreSplit {
             $esu->amount = round($split_amount*$factor,0);
             $sum += $esu->amount;
             $esu->save();
+            $split_names[] = sprintf('%s (%0.02f)', $member_data['display_name'], $esu->amount/100);
         }
         if ($sum != $exp->amount) {
             $db->rollback(); throw new InvalidArgumentException("sum of split amounts $sum must match expense amount {$exp->amount}");
         }
         $db->commit();
-        $this->papertrail($g, $is_new?"add":"update", "expense", "{$exp->type}  {$exp->description}  {$exp->amount}  {$exp->who_paid}  {$exp->date}");
-        
+        $this->papertrail($g, $is_new?"add":"update", "expense", sprintf("Description: %s\nAmount %0.02f paid by %s on %s\nSplit amongst %s",
+            $exp->description, $exp->amount/100, $this->find_member($members, $exp->who_paid)['display_name'], $exp->date, implode(", ", $split_names)));
     }
     function create_expense() {
         try{
