@@ -67,9 +67,9 @@
       </tbody>
       <tfoot>
         <tr><td colspan=5>
-          <form class="form-inline">
+          <form class="form-inline" id="invite_form">
             <input type="text" class="form-control" id="invite_name" placeholder="Name">
-            <input type="button" class="btn btn-success" value="Invite" id="invite_btn">
+            <input type="submit" class="btn btn-success" value="Invite">
           </form>
         </td></tr>
       </tfoot>
@@ -258,7 +258,7 @@ load_members().then(function() {
 });
 
 //==> Handle invitations
-$("#invite_btn").click(function() {
+$("#invite_form").submit(function() {
     var name = $("#invite_name").val();
     $.post("/group/"+group.id+"/members", {
         display_name: name
@@ -267,9 +267,9 @@ $("#invite_btn").click(function() {
             $("#invite_name").val("");
             load_members();
             show_invite_modal(r.link);
-            
         }
     },"json");
+    return false;
 });
 
 $("body").on("click", "a.member-show-invite", function() {
