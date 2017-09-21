@@ -315,7 +315,7 @@ function show_invite_modal(link) {
 }
 
 function deleteGroup() {
-	if (confirm("Are you sure you want to delete group "+group.name+"?")) {
+	if (prompt("Are you sure you want to delete group "+group.name+"?\nType 'YES' to confirm.","")=="YES") {
 		$.ajax({
 			method: "DELETE",
 			url: "/group/"+group.id,
