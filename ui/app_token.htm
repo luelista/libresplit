@@ -1,0 +1,25 @@
+
+<div class="headertron pattern2" style="background-color: #d1004d;">
+  <div class="container">
+        <h2>Download the LibreSplit app for Android</h2>
+        <p>Lorem Ipsum ...</p>
+  </div>
+</div>
+
+
+<div class='container topmargin'>
+    <script src="style/qrcode.js"></script>
+
+    <div id="token_qr" style="width:256px;height:256px"></div>
+
+    <script>
+        var link = <json from="@login_link"/>;
+        var qr=new QRCode(document.getElementById('token_qr'));
+        qr.makeCode(link);
+    </script>
+    <br>
+
+    <p>To login in the app, slide in from the left and select 'Add Account ...' - then scan the above QR code.</p>
+</div>
+
+

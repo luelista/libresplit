@@ -74,12 +74,15 @@ class LibreSplit {
           if(!$_SESSION["csrf"]) $_SESSION["csrf"]=guid();
           $this->try_tokencookie_login();
         }
-
     }
     private function api_result($values) {
         if (strpos($_SERVER['HTTP_ACCEPT'], 'application/json') === 0 || $_GET['format'] == 'json') {
             header('Content-Type: application/json; charset=utf8');
-            foreach($values as $x) $dict[$x] = F3::get($x);
+            foreach($values as $x)  {
+                $v = F3::get($x);
+                if ($v instanceof \DB\SQL\Mapper) $v = $v->cast();
+                $dict[$x] = $v;
+            }
             echo json_encode( $dict );
             exit();
         }
@@ -185,7 +188,6 @@ class LibreSplit {
             }
         }
         $this->render_layout('frontpage.htm');
-        
     }
     function mail_verified() {
         if ($_SESSION['userid']) {
@@ -198,13 +200,17 @@ class LibreSplit {
         $email = urldecode($email);
         F3::set('REQUEST.login_email', $email);
         if ($timestamp+2*3600 < time()) {
+            http_response_code(400);
             F3::set('login_error', "This confirmation link has expired. Please request a new link by clicking 'login' below.");
+            $this->api_result(['login_error']);
             $this->render_layout('frontpage.htm');
             return;
         }
         $correct_token = base64_encode(sha1( F3::get('app_secret') . $timestamp . $email , true));
         if ($token !== $correct_token) {
+            http_response_code(400);
             F3::set('login_error', "There seems to be a problem with your confirmation link. Please try copying the complete link from your mail program and paste it into the address bar of your browser.");
+            $this->api_result(['login_error']);
             $this->render_layout('frontpage.htm');
             return;
         }
@@ -213,7 +219,9 @@ class LibreSplit {
         $user->load(['email = ?', $email ]);
         
         if (strtotime($user->last_login_at) >= $timestamp) {
+            http_response_code(400);
             F3::set('login_error', "This confirmation link has already been used. Please request a new link by clicking 'login' below.");
+            $this->api_result(['login_error']);
             $this->render_layout('frontpage.htm');
             return;
         }
@@ -227,6 +235,8 @@ class LibreSplit {
         
         $this->login_user($user);
         $this->set_login_token($user);
+        F3::set('email', $email); F3::set('username', $user->username);
+        $this->api_result(['email','username','access_token']);
         $this->login_redirect();
     }
     private function set_login_token($user) {
@@ -236,6 +246,7 @@ class LibreSplit {
         $permatoken->save();
         setcookie('libresplitlogin', $permatoken->token, time()+62208000, '/');
         $_SESSION["logintoken"] = $permatoken->token;
+        F3::set('access_token', $permatoken->token);
     }
     function openid_verified() {
         if ($_SESSION['userid']) {
@@ -339,8 +350,19 @@ class LibreSplit {
         $user->load(['id=?', $_SESSION['userid']]);
         if ($user->dry()) F3::error(404);
         F3::set('profile', $user);
-        
+
+        $this->api_result(['profile']);
         $this->render_layout('profile.htm');
+    }
+    function show_app_token() {
+        $this->require_login(TRUE);
+        $user = dbm('user');
+        $user->load(['id=?', $_SESSION['userid']]);
+        if ($user->dry()) F3::error(404);
+        F3::set('profile', $user);
+        F3::set('login_link', base64_encode($this->make_login_link($user->get('email'))));
+
+        $this->render_layout('app_token.htm');
     }
     function update_profile() {
         $this->require_login(FALSE);
