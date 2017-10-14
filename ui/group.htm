@@ -24,6 +24,7 @@
 <div class=container>
 
   <h3>Expenses</h3>
+  <input type="search" id="search_box" placeholder="Filter"> <span id="search_matches"></span>
   <form id="expense_form">
     <table class="table">
       <thead>
@@ -326,6 +327,23 @@ function deleteGroup() {
 		});
 	}
 }
+
+$("#search_box").keyup(function() {
+    var searchTerm = new RegExp(this.value.toLowerCase());
+    var matches=0;
+    $("#expense_form table tr").each(function(i,x){
+        var firstCol=x.querySelector("td");
+        if (firstCol) {
+            if (searchTerm.test(firstCol.innerText.toLowerCase())) {
+                x.style.display= "";
+                matches++;
+            }else {
+                x.style.display = "none";
+            }
+        }
+    });
+    $("#search_matches").text(""+matches+" Trefffer");
+});
 
 </script>
 
