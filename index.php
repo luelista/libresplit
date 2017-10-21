@@ -50,6 +50,8 @@ function get_mailer() {
     $mailer = new \SMTP( F3::get('SMTP.host') , F3::get('SMTP.port') , F3::get('SMTP.security') , 
             F3::get('SMTP.user') , F3::get('SMTP.password') );
     $mailer->set('X-Mailer', 'libresplit');
+    $mailer->set('Date', date('r'));
+    $mailer->set('Message-ID', '<'.guid().'@'.$_SERVER['SERVER_NAME'].'>');
     $mailer->set('From', F3::get('SMTP.from_address'));
     $mailer->set('Errors-To', F3::get('SMTP.support_address'));
     $mailer->set('Reply-To', F3::get('SMTP.support_address'));
