@@ -271,6 +271,7 @@ load_members().then(function() {
 //==> Handle invitations
 $("#invite_form").submit(function() {
     var name = $("#invite_name").val();
+    if (!name) { alert("Please enter a name."); return false; }
     $.post("/group/"+group.id+"/members", {
         display_name: name
     },function(r) {
@@ -279,7 +280,10 @@ $("#invite_form").submit(function() {
             load_members();
             show_invite_modal(r.link);
         }
-    },"json");
+    },"json").always(function() {
+        $("#invite_form input").attr("disabled",false);
+    });
+    $("#invite_form input").attr("disabled",true);
     return false;
 });
 
