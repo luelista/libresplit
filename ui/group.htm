@@ -152,20 +152,30 @@ $("body").on("click", ".expense-copy", function() {
     return false;
 });
 
+function arraySum(arr) {
+    var count=0;
+    for (var i=arr.length; i--;) {
+        count+=arr[i];
+    }
+    return count;
+}
+
 function calcSplitAmounts() {
     var amount = Math.round(parseFloat($("#add_amount").val().replace(/,/,'.'))*100);
     
     var split =  $("#add_split")[0];
     var selcount = $("#add_split option").filter(":selected").length;
     var amountPerUser = Math.floor(amount / selcount);
-    var remain = amount - amountPerUser*selcount;
-    split_amount = [];
-    
+    var userAmounts = new Array(selcount);
+    for(var i = 0; i < selcount; i++) userAmounts[i] = amountPerUser;
+    while (arraySum(userAmounts) < amount) {
+        userAmounts[Math.floor(Math.random() * selcount)]++;
+    }
+    var userIdx = 0;
     for(var i=0;i<split.options.length;i++) {
         var m = $(split.options[i]).data("member");
         if (amount && split.options[i].selected) {
-            m.owes = amountPerUser + remain;
-            remain=0;
+            m.owes = userAmounts[userIdx++];
         } else {
             m.owes = null;
         }
@@ -176,7 +186,7 @@ function calcSplitAmounts() {
 function updateSplitAmountText(option, m) {
     var t = m.display_name;
     if (m.owes) {
-        t += " owes €" + (m.owes/100);
+        t += " owes €" + (m.owes/100).toFixed(2);
     }
     option.innerText = t;
 }
