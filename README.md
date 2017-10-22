@@ -19,7 +19,7 @@ Create a mysql database and user:
 
 Then run the `install.sql` commands in that database.
 
-    mysql libresplitdb < install.sql
+    mysql -u libresplit -p libresplitdb < install.sql
 
 Copy the `htconfig-sample.ini` to `.htconfig.ini` and fill in your database 
 connection details.
