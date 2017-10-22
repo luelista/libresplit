@@ -24,5 +24,7 @@ Then run the `install.sql` commands in that database.
 Copy the `htconfig-sample.ini` to `.htconfig.ini` and fill in your database 
 connection details.
 
+    cp htconfig-sample.ini .htconfig.ini
+
 
 
