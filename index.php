@@ -493,7 +493,7 @@ class LibreSplit {
     private function get_group_members($g) {
         $members = F3::get('DB')->exec('SELECT gm.id member_id, coalesce(u.username,gm.invited_name) display_name,u.id user_id,u.email,gm.invited_token
         FROM `group_member` gm LEFT OUTER JOIN `user` u ON gm.user_id=u.id
-        WHERE gm.group_id=? ORDER BY gm.id', [$g->id]);
+        WHERE gm.group_id=? ORDER BY coalesce(u.username,gm.invited_name)', [$g->id]);
         foreach($members as &$d) if($d['invited_token'])$d['link'] = base_url().'/join/'.$d['invited_token'];
         return $members;
     }
