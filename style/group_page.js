@@ -9,20 +9,22 @@ function formatCurrency(amount) {
 
 //==> Add expense
 $("#exp_add_btn").click(function() {
+	var self = this;
     var data = {
         description: $("#add_description").val(),
         who_paid: $("#add_who_paid").val(),
         amount: Math.round($("#add_amount").val().replace(/,/,'.')*100)
     };
-    
+    $("#expense_form .input-row").after("<tr id=load-indicator><td colspan=5><div style=text-align:center><img src=/style/loading.gif alt='Please wait ...'></div></td></tr>");
     $("#add_split option").filter(":selected").each(function() {
         var m = $(this).data("member");
         data['split['+ m.member_id+']'] = m.owes;
     });
     console.log(data);
+	this.setAttribute("disabled", true);
     $.post("/group/"+group.id+"/expenses", data, function(r) {
         if (r.msg) alert(r.msg);
-        if (r.success) location.reload();
+        if (r.success) location.reload(); else { self.disabled = false; $("#load-indicator").remove(); }
     }, "json");
 });
 
@@ -124,6 +126,7 @@ function add_members_to_table($table_cont, members) {
             .data("member", members[i]);
         $("<td>").text(members[i].display_name).appendTo($tr);
         $("<td>").text(members[i].email).appendTo($tr);
+        $("<td>").attr("class","member-balance").text("").appendTo($tr);
         if (members[i].user_id) {
             $("<td>").text("yes").appendTo($tr);
             if (members[i].user_id == libreSplit.userid)
@@ -154,7 +157,7 @@ load_members().then(function() {
         }
         console.log(to_pay);
         var out="";
-        
+        var member_balances = {};
         for(var k in to_pay) {
             var d = to_pay[k];
             if (d.debt==0) continue;
@@ -168,7 +171,12 @@ load_members().then(function() {
             } else {
                 out+=" <span class='label label-default'>"+d.debtor.display_name+" owes "+formatCurrency(d.debt)+" to "+d.creditor.display_name +"</span>&nbsp; ";
             }
+			member_balances[d.debtor.member_id] = (member_balances[d.debtor.member_id] || 0) - d.debt;
+			member_balances[d.creditor.member_id] = (member_balances[d.creditor.member_id] || 0) + d.debt;
         }
+		for(var id in member_balances) {
+			$("tr[data-member-id="+id+"] .member-balance").text((member_balances[id]/100).toFixed(2)).css("color",member_balances[id]<0?"red":"");
+		}
         $("#settleup").html(out);
         
     });
