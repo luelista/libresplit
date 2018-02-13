@@ -181,7 +181,8 @@ load_members().then(function() {
 		for(var id in member_balances) {
 			$("tr[data-member-id="+id+"] .member-balance").text((member_balances[id]/100).toFixed(2)).css("color",member_balances[id]<0?"red":"");
 		}
-		$("#settleup").html(out + "<a href='javascript:' onclick='$(\".more\").show();$(this).hide()' class='label label-primary'>show more</a><span class='more' style='display:none'><br>" + out_other + "</span>");
+		if (out_other) out += "<a href='javascript:' onclick='$(\".more\").show();$(this).hide()' class='label label-primary'>show more</a><span class='more' style='display:none'><br>" + out_other + "</span>";
+		$("#settleup").html(out);
 
 	});
 });
