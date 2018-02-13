@@ -111,7 +111,7 @@ class LibreSplit {
         }
     }
     
-    private function papertrail($g, $action, $object_type, $str_repr) {
+    private function papertrail($g, $action, $object_type, $str_repr, $member_ids = NULL) {
         $pt = dbm('papertrail');
         $pt->actor_user_id = $_SESSION["userid"];
         $pt->group_id = $g == NULL ? NULL : $g['id'];
@@ -119,7 +119,7 @@ class LibreSplit {
         $pt->object_type = $object_type;
         $pt->repr = $str_repr;
         $pt->save();
-        $noti = F3::get('DB')->exec('SELECT u.id,username,email
+        $noti = F3::get('DB')->exec('SELECT u.id,username,email,gm.id gmid
             FROM user u
                 INNER JOIN group_member gm ON u.id=gm.user_id
             WHERE gm.notifications > 0 AND gm.group_id = ?',
@@ -130,7 +130,7 @@ class LibreSplit {
             "> " . str_replace("\n", "\n> ", $str_repr) .
             "\n\n\nYou may use the following link to access your account:\n";
         foreach($noti as $user) {
-            if ($user['id'] != $_SESSION['userid'] && $user['email']) {
+            if ($user['id'] != $_SESSION['userid'] && $user['email'] && (!$member_ids || in_array($user['gmid'], $member_ids))) {
                 $mailer->set('To', "$user[username] <$user[email]>");
                 $link = $this->make_login_link($user['email']);
                 $mailer->send($mail_body . $link . "\n\n");
@@ -549,7 +549,7 @@ class LibreSplit {
         }
         $db->commit();
         $this->papertrail($g, $is_new?"add":"update", "expense", sprintf("Description: %s\nAmount %0.02f paid by %s on %s\nSplit amongst %s",
-            $exp->description, $exp->amount/100, $this->find_member($members, $exp->who_paid)['display_name'], $exp->date, implode(", ", $split_names)));
+            $exp->description, $exp->amount/100, $this->find_member($members, $exp->who_paid)['display_name'], $exp->date, implode(", ", $split_names)), array_keys($split));
     }
     function create_expense() {
         try{
