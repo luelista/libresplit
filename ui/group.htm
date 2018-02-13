@@ -21,10 +21,21 @@
   </div>
 </div>
 
-<div class=container>
+<div class=container><br>
 
+
+	<ul class="nav nav-tabs nav-justified" role="tablist">
+		<li class="active"><a href="#tab_expenses" aria-controls="tab_expenses" role="tab" data-toggle="tab">Expenses</a></li>
+		<li><a href="#tab_members" aria-controls="tab_members" role="tab" data-toggle="tab">Members</a></li>
+		<li><a href="#tab_managegroup" aria-controls="tab_managegroup" role="tab" data-toggle="tab">Manage Group</a></li>
+	</ul>
+
+  <div class="tab-content">
+  <div role="tabpanel" class="tab-pane active" id="tab_expenses">
+  <div class=pull-right>
+  <input type="search" class="form-control" id="search_box" placeholder="Filter ..."> <span id="search_matches"></span>
+  </div>
   <h3>Expenses</h3>
-  <input type="search" id="search_box" placeholder="Filter"> <span id="search_matches"></span>
   <form id="expense_form">
     <table class="table">
       <thead>
@@ -58,8 +69,10 @@
 
     </table>
   </form>
+  </div>
 
   <check if="{{ !@readonly }}">
+  <div role="tabpanel" class="tab-pane" id="tab_members">
     <h3>Members</h3>
 
     <table class='table table-striped'>
@@ -76,20 +89,24 @@
       </tfoot>
     </table>
 
-
-    <h3>Share</h3>
+  </div>
+  <div role="tabpanel" class="tab-pane" id="tab_managegroup">
+	  <h3>Manage Group</h3><br>
+    <h4>Share</h4>
 
     <p>The following link allows read-only access to this page. </p>
     <input type="text" readonly onmouseenter="this.select()" value="{{base_url()}}/group/{{@group.id}}?t={{@group.readonly_token}}" class=form-control>
 
-
-	<h3>Delete</h3>
+    <br>
+	<h4>Delete</h4>
 	<input type="button" value="Delete group" onclick="deleteGroup();" class="btn btn-danger">
-
+  </div>
   </check>
-
 </div>
 
+
+</div>
+<br><br>
 <script>
 group = <json from="{{ @group->cast() }}" />;
 </script>
