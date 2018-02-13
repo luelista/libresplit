@@ -32,12 +32,23 @@
     <repeat group="{{@splits}}" value="{{@d}}">
       <tr>
         <td>{{ @d.display_name }}</td>
-        <td><input type="number" step="0.01" required name="split[{{@d.member_id}}]" value="{{sprintf('%0.02F',@d.amount/100)}}"></td>
+        <td><input type="number" step="0.01" required name="split[{{@d.member_id}}]" value="{{sprintf('%0.02F',@d.amount/100)}}" class="expense_inputs"></td>
       </tr>
     </repeat>
+	<tr style="display: none" id="expense_sum"><td>Sum</td><td><span></span></td></tr>
     </table>
 
     <div class="form-group"><input class="btn" type="submit" value="OK"></div>
 
   </form>
 </div>
+<script>
+$(".expense_inputs, #amount").change(function() {
+	var sum = 0;
+	$(".expense_inputs").each(function() {
+		sum += parseFloat($(this).val());
+	});
+	$("#expense_sum span").text(sum.toFixed(2));
+	$("#expense_sum").toggle(sum != parseFloat($("#amount").val()))
+});
+</script>
