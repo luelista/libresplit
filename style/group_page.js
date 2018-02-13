@@ -160,7 +160,7 @@ load_members().then(function() {
 			to_pay[key].debt += d.debt;
 		}
 		console.log(to_pay);
-		var out="";
+		var out="",out_other="";
 		var member_balances = {};
 		for(var k in to_pay) {
 			var d = to_pay[k];
@@ -173,7 +173,7 @@ load_members().then(function() {
 			} else if (libreSplit.userid && d.creditor.user_id == libreSplit.userid) {
 				out+=" <span class='label label-success'>"+d.debtor.display_name+" owes you "+formatCurrency(d.debt)+"</span>&nbsp; ";
 			} else {
-				out+=" <span class='label label-default'>"+d.debtor.display_name+" owes "+formatCurrency(d.debt)+" to "+d.creditor.display_name +"</span>&nbsp; ";
+				out_other+=" <span class='label label-default'>"+d.debtor.display_name+" owes "+formatCurrency(d.debt)+" to "+d.creditor.display_name +"</span>&nbsp; ";
 			}
 			member_balances[d.debtor.member_id] = (member_balances[d.debtor.member_id] || 0) - d.debt;
 			member_balances[d.creditor.member_id] = (member_balances[d.creditor.member_id] || 0) + d.debt;
@@ -181,7 +181,7 @@ load_members().then(function() {
 		for(var id in member_balances) {
 			$("tr[data-member-id="+id+"] .member-balance").text((member_balances[id]/100).toFixed(2)).css("color",member_balances[id]<0?"red":"");
 		}
-		$("#settleup").html(out);
+		$("#settleup").html(out + "<a href='javascript:' onclick='$(\".more\").show();$(this).hide()' class='label label-primary'>show more</a><span class='more' style='display:none'><br>" + out_other + "</span>");
 
 	});
 });
