@@ -147,6 +147,14 @@ function add_members_to_table($table_cont, members) {
 	}
 }
 
+function settle(debtor, creditor, amount) {
+	$("#add_amount").val(amount/100);
+	$("#add_who_paid").val(debtor);
+	$("#add_split").val(creditor);
+	$("#add_description").val("Settled up");
+	calcSplitAmounts();
+}
+
 load_members().then(function() {
 	$.get("/group/"+group.id+"/to_pay?t="+group.readonly_token,function(r) {
 		to_pay = {};
@@ -168,12 +176,13 @@ load_members().then(function() {
 			if (d.debt<0) {
 				var x=d.debtor; d.debtor=d.creditor; d.creditor=x; d.debt=-d.debt;
 			}
+			var target="href='javascript:settle("+d.debtor.member_id+","+d.creditor.member_id+","+d.debt+")' title='Settle up this debt'";
 			if (libreSplit.userid && d.debtor.user_id == libreSplit.userid) {
-				out+=" <span class='label label-danger'>You owe "+formatCurrency(d.debt)+" to "+d.creditor.display_name+"</span>&nbsp; ";
+				out+=" <a "+target+" class='label label-danger'>You owe "+formatCurrency(d.debt)+" to "+d.creditor.display_name+"</a>&nbsp; ";
 			} else if (libreSplit.userid && d.creditor.user_id == libreSplit.userid) {
-				out+=" <span class='label label-success'>"+d.debtor.display_name+" owes you "+formatCurrency(d.debt)+"</span>&nbsp; ";
+				out+=" <a "+target+" class='label label-success'>"+d.debtor.display_name+" owes you "+formatCurrency(d.debt)+"</a>&nbsp; ";
 			} else {
-				out_other+=" <span class='label label-default'>"+d.debtor.display_name+" owes "+formatCurrency(d.debt)+" to "+d.creditor.display_name +"</span>&nbsp; ";
+				out_other+=" <a "+target+" class='label label-default'>"+d.debtor.display_name+" owes "+formatCurrency(d.debt)+" to "+d.creditor.display_name +"</a>&nbsp; ";
 			}
 			member_balances[d.debtor.member_id] = (member_balances[d.debtor.member_id] || 0) - d.debt;
 			member_balances[d.creditor.member_id] = (member_balances[d.creditor.member_id] || 0) + d.debt;
