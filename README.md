@@ -11,13 +11,20 @@ DocumentRoot ist the root folder of the repository. At the moment libresplit
 can not be deployed to a subdirectory. Pull requests to change that are 
 appreciated.
 
-Create a mysql database and user, then run the `install.sql` 
-commands in that database.
+Create a mysql database and user:
 
-    mysql libresplitdb < install.sql
+    CREATE DATABASE libresplitdb;
+    CREATE USER 'libresplit'@'localhost' IDENTIFIED BY 'SECURE_PASSWORD';
+    GRANT ALL PRIVILEGES ON libresplitdb.* TO 'libresplit'@'localhost';
+
+Then run the `install.sql` commands in that database.
+
+    mysql -u libresplit -p libresplitdb < install.sql
 
 Copy the `htconfig-sample.ini` to `.htconfig.ini` and fill in your database 
 connection details.
+
+    cp htconfig-sample.ini .htconfig.ini
 
 
 
