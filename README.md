@@ -2,7 +2,6 @@
 
 Open source web app for tracking group expenses and settling up easily.
 
-Hosted version at: https://libresplit.luelistan.net
 
 ## Install instructions
 
